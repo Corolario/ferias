@@ -5,12 +5,6 @@
 {% block content %}
 <h2 class="mb-4"><i class="bi bi-trophy-fill"></i> Ranking de Pontos</h2>
 
-<div class="alert alert-info">
-    <i class="bi bi-info-circle"></i>
-    <strong>Sistema de Pontuação:</strong> Cada dia de férias vale pontos diferentes dependendo do mês.
-    Meses de alta temporada (Janeiro, Fevereiro, Julho, Dezembro) valem 11 pontos por dia.
-</div>
-
 <!-- Tabela de Pontos por Mês -->
 <div class="card shadow-sm mb-4">
     <div class="card-header">
@@ -34,58 +28,94 @@
 
 <!-- Ranking -->
 {% if ranking_data %}
-    <h4 class="mb-3">Classificação</h4>
-
-    {% for emp_data in ranking_data %}
-    <div class="card shadow-sm mb-3">
+    <div class="card shadow-sm">
         <div class="card-body">
-            <div class="row align-items-center">
-                <div class="col-md-1 text-center">
-                    {% if loop.index == 1 %}
-                        <h1 class="mb-0">🥇</h1>
-                    {% elif loop.index == 2 %}
-                        <h1 class="mb-0">🥈</h1>
-                    {% elif loop.index == 3 %}
-                        <h1 class="mb-0">🥉</h1>
-                    {% else %}
-                        <h4 class="mb-0">#{{ loop.index }}</h4>
-                    {% endif %}
+            <h5 class="card-title">Classificação</h5>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Posição</th>
+                            <th>Nome</th>
+                            <th>Dias de Férias</th>
+                            <th class="text-center">Ver Detalhes por Mês</th>
+                            <th class="text-end">Pontos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp_data in ranking_data %}
+                        <tr>
+                            <td><strong>#{{ loop.index }}</strong></td>
+                            <td><strong>{{ emp_data.name }}</strong></td>
+                            <td>{{ emp_data.total_days }}</td>
+                            <td class="text-center">
+                                {% if emp_data.month_breakdown %}
+                                <button class="btn btn-sm btn-outline-primary" type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#detailsModal{{ loop.index }}">
+                                    <i class="bi bi-eye"></i> Ver Detalhes
+                                </button>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end"><strong>{{ "{:,}".format(emp_data.total_points) }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modais de Detalhes -->
+    {% for emp_data in ranking_data %}
+    {% if emp_data.month_breakdown %}
+    <div class="modal fade" id="detailsModal{{ loop.index }}" tabindex="-1" aria-labelledby="detailsModalLabel{{ loop.index }}" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailsModalLabel{{ loop.index }}">
+                        <i class="bi bi-calendar3"></i> Detalhes de {{ emp_data.name }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-
-                <div class="col-md-6">
-                    <h4 class="mb-1">{{ emp_data.name }}</h4>
-                    <p class="mb-0 text-muted">
-                        Total de dias de férias: <strong>{{ emp_data.total_days }}</strong>
-                    </p>
+                <div class="modal-body">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Mês</th>
+                                <th class="text-center">Dias</th>
+                                <th class="text-center">Pts/Dia</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for month in emp_data.month_breakdown %}
+                            <tr>
+                                <td><strong>{{ month.month_name }}</strong></td>
+                                <td class="text-center">{{ month.days }}</td>
+                                <td class="text-center">{{ month.points_per_day }}</td>
+                                <td class="text-end"><strong>{{ month.total_points }}</strong></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-active">
+                                <td colspan="3"><strong>Total</strong></td>
+                                <td class="text-end"><strong>{{ emp_data.total_points }} pontos</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
-
-                <div class="col-md-5 text-md-end">
-                    <h3 class="mb-2">{{ "{:,}".format(emp_data.total_points) }} pontos</h3>
-
-                    {% if emp_data.month_breakdown %}
-                    <button class="btn btn-sm btn-outline-secondary" type="button"
-                            data-bs-toggle="collapse"
-                            data-bs-target="#details-{{ loop.index }}">
-                        <i class="bi bi-eye"></i> Ver detalhes por mês
-                    </button>
-
-                    <div class="collapse mt-3" id="details-{{ loop.index }}">
-                        <div class="card card-body bg-light">
-                            <small>
-                                {% for month in emp_data.month_breakdown %}
-                                <div class="mb-1">
-                                    <strong>{{ month.month_name }}:</strong>
-                                    {{ month.days }} dias × {{ month.points_per_day }} pts = {{ month.total_points }} pontos
-                                </div>
-                                {% endfor %}
-                            </small>
-                        </div>
-                    </div>
-                    {% endif %}
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                 </div>
             </div>
         </div>
     </div>
+    {% endif %}
     {% endfor %}
 
 {% else %}

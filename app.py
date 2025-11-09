@@ -219,7 +219,16 @@ def ferias():
 
     employees = employees_df.to_dict('records')
     vacations_df = models.get_vacations()
-    vacations = vacations_df.to_dict('records') if not vacations_df.empty else []
+
+    # Calcular número de dias para cada período de férias
+    if not vacations_df.empty:
+        import pandas as pd
+        vacations_df['start_date_obj'] = pd.to_datetime(vacations_df['start_date'], format='%d/%m/%Y')
+        vacations_df['end_date_obj'] = pd.to_datetime(vacations_df['end_date'], format='%d/%m/%Y')
+        vacations_df['num_days'] = (vacations_df['end_date_obj'] - vacations_df['start_date_obj']).dt.days + 1
+        vacations = vacations_df.to_dict('records')
+    else:
+        vacations = []
 
     return render_template('ferias.html', employees=employees, vacations=vacations)
 
