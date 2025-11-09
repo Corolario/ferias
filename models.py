@@ -1,20 +1,27 @@
+"""
+Módulo de modelos e funções de banco de dados para o gerenciador de férias
+"""
 import sqlite3
-import hashlib
+import bcrypt
+from datetime import datetime, timedelta
 import pandas as pd
-from datetime import datetime
 
-# Funções de banco de dados
+
 def init_db():
     """Inicializa o banco de dados"""
     conn = sqlite3.connect('vacation_manager.db')
     c = conn.cursor()
+
+    # Habilitar foreign keys
+    c.execute('PRAGMA foreign_keys = ON')
 
     # Tabela de usuários
     c.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
 
@@ -40,34 +47,50 @@ def init_db():
     ''')
 
     # Criar usuário admin padrão se não existir
-    password_hash = hashlib.sha256("admin123".encode()).hexdigest()
-    c.execute('INSERT OR IGNORE INTO users (username, password_hash) VALUES (?, ?)',
-              ('admin', password_hash))
+    c.execute('SELECT COUNT(*) FROM users WHERE username = ?', ('admin',))
+    if c.fetchone()[0] == 0:
+        password_hash = hash_password('admin123')
+        c.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)',
+                  ('admin', password_hash))
 
     conn.commit()
     conn.close()
 
 
 def hash_password(password):
-    """Gera hash SHA256 da senha"""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Gera hash bcrypt da senha"""
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+
+
+def verify_password(password, password_hash):
+    """Verifica se a senha corresponde ao hash"""
+    return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
 
 
 def verify_login(username, password):
     """Verifica credenciais de login"""
+    if not username or not password:
+        return False
+
     conn = sqlite3.connect('vacation_manager.db')
     c = conn.cursor()
-    password_hash = hash_password(password)
 
-    c.execute('SELECT id FROM users WHERE username = ? AND password_hash = ?',
-              (username, password_hash))
+    c.execute('SELECT password_hash FROM users WHERE username = ?', (username,))
     result = c.fetchone()
     conn.close()
-    return result is not None
+
+    if result is None:
+        return False
+
+    return verify_password(password, result[0])
 
 
 def change_password(username, new_password):
     """Altera a senha do usuário"""
+    if not username or not new_password or len(new_password) < 6:
+        return False
+
     conn = sqlite3.connect('vacation_manager.db')
     c = conn.cursor()
     password_hash = hash_password(new_password)
@@ -75,17 +98,24 @@ def change_password(username, new_password):
     c.execute('UPDATE users SET password_hash = ? WHERE username = ?',
               (password_hash, username))
     conn.commit()
+    rows_affected = c.rowcount
     conn.close()
+
+    return rows_affected > 0
 
 
 # Funções de gerenciamento de funcionários
 def add_employee(name):
     """Adiciona um novo funcionário"""
+    if not name or not name.strip():
+        return False
+
     conn = sqlite3.connect('vacation_manager.db')
     c = conn.cursor()
-    c.execute('INSERT INTO employees (name) VALUES (?)', (name,))
+    c.execute('INSERT INTO employees (name) VALUES (?)', (name.strip(),))
     conn.commit()
     conn.close()
+    return True
 
 
 def get_employees():
@@ -96,19 +126,11 @@ def get_employees():
     return df
 
 
-def update_employee(employee_id, name):
-    """Atualiza o nome de um funcionário"""
-    conn = sqlite3.connect('vacation_manager.db')
-    c = conn.cursor()
-    c.execute('UPDATE employees SET name = ? WHERE id = ?', (name, employee_id))
-    conn.commit()
-    conn.close()
-
-
 def delete_employee(employee_id):
     """Remove um funcionário e suas férias"""
     conn = sqlite3.connect('vacation_manager.db')
     c = conn.cursor()
+    c.execute('PRAGMA foreign_keys = ON')
     c.execute('DELETE FROM employees WHERE id = ?', (employee_id,))
     conn.commit()
     conn.close()
@@ -117,12 +139,22 @@ def delete_employee(employee_id):
 # Funções de gerenciamento de férias
 def add_vacation(employee_id, start_date, end_date):
     """Adiciona período de férias"""
+    # Validações
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+
+    if start_date > end_date:
+        return False
+
     conn = sqlite3.connect('vacation_manager.db')
     c = conn.cursor()
     c.execute('INSERT INTO vacations (employee_id, start_date, end_date) VALUES (?, ?, ?)',
               (employee_id, start_date, end_date))
     conn.commit()
     conn.close()
+    return True
 
 
 def get_vacations():
@@ -141,6 +173,7 @@ def get_vacations():
     if not df.empty:
         df['start_date'] = pd.to_datetime(df['start_date']).dt.strftime('%d/%m/%Y')
         df['end_date'] = pd.to_datetime(df['end_date']).dt.strftime('%d/%m/%Y')
+
     return df
 
 
@@ -169,6 +202,7 @@ def get_employee_vacations(employee_id):
     if not df.empty:
         df['start_date'] = pd.to_datetime(df['start_date']).dt.strftime('%d/%m/%Y')
         df['end_date'] = pd.to_datetime(df['end_date']).dt.strftime('%d/%m/%Y')
+
     return df
 
 
@@ -213,11 +247,13 @@ def calculate_vacation_points(start_date, end_date):
             days_by_month[month] = 0
         days_by_month[month] += 1
 
-        current_date = current_date.replace(day=current_date.day + 1) if current_date.day < 28 else current_date.replace(month=current_date.month + 1 if current_date.month < 12 else 1, day=1, year=current_date.year + (1 if current_date.month == 12 else 0))
+        # Avançar um dia
+        current_date = current_date + timedelta(days=1)
 
     # Calcular pontos por mês
     for month, days in days_by_month.items():
         total_points += days * month_points[month]
+
     return total_points, days_by_month
 
 
@@ -275,4 +311,5 @@ def get_employee_ranking():
 
     # Ordenar por pontos (crescente - menor para maior)
     ranking_data.sort(key=lambda x: x['total_points'])
+
     return ranking_data

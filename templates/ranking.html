@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Ranking - Gerenciador de Férias{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-trophy-fill"></i> Ranking de Pontos</h2>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    <strong>Sistema de Pontuação:</strong> Cada dia de férias vale pontos diferentes dependendo do mês.
+    Meses de alta temporada (Janeiro, Fevereiro, Julho, Dezembro) valem 11 pontos por dia.
+</div>
+
+<!-- Tabela de Pontos por Mês -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-calendar3"></i> Tabela de Pontos por Mês
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for month_data in month_points_list %}
+            <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
+                <div class="text-center">
+                    <strong>{{ month_data.name }}</strong><br>
+                    <span class="badge bg-primary">{{ month_data.points }} pts</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Ranking -->
+{% if ranking_data %}
+    <h4 class="mb-3">Classificação</h4>
+
+    {% for emp_data in ranking_data %}
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-1 text-center">
+                    {% if loop.index == 1 %}
+                        <h1 class="mb-0">🥇</h1>
+                    {% elif loop.index == 2 %}
+                        <h1 class="mb-0">🥈</h1>
+                    {% elif loop.index == 3 %}
+                        <h1 class="mb-0">🥉</h1>
+                    {% else %}
+                        <h4 class="mb-0">#{{ loop.index }}</h4>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-6">
+                    <h4 class="mb-1">{{ emp_data.name }}</h4>
+                    <p class="mb-0 text-muted">
+                        Total de dias de férias: <strong>{{ emp_data.total_days }}</strong>
+                    </p>
+                </div>
+
+                <div class="col-md-5 text-md-end">
+                    <h3 class="mb-2">{{ "{:,}".format(emp_data.total_points) }} pontos</h3>
+
+                    {% if emp_data.month_breakdown %}
+                    <button class="btn btn-sm btn-outline-secondary" type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#details-{{ loop.index }}">
+                        <i class="bi bi-eye"></i> Ver detalhes por mês
+                    </button>
+
+                    <div class="collapse mt-3" id="details-{{ loop.index }}">
+                        <div class="card card-body bg-light">
+                            <small>
+                                {% for month in emp_data.month_breakdown %}
+                                <div class="mb-1">
+                                    <strong>{{ month.month_name }}:</strong>
+                                    {{ month.days }} dias × {{ month.points_per_day }} pts = {{ month.total_points }} pontos
+                                </div>
+                                {% endfor %}
+                            </small>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+{% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        Nenhum funcionário cadastrado ainda. Adicione funcionários e registre férias para ver o ranking!
+    </div>
+{% endif %}
+{% endblock %}

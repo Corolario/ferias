@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Funcionários - Gerenciador de Férias{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-people-fill"></i> Gerenciar Funcionários</h2>
+
+<div class="row">
+    <!-- Formulário de Adicionar -->
+    <div class="col-md-4 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Adicionar Funcionário</h5>
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Nome do Funcionário</label>
+                        <input type="text" class="form-control" id="name"
+                               name="name" required autofocus>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Adicionar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Funcionários -->
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Lista de Funcionários</h5>
+
+                {% if employees %}
+                    <div class="list-group">
+                        {% for emp in employees %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><strong>{{ emp.name }}</strong></span>
+                            <form method="POST" action="{{ url_for('delete_funcionario', employee_id=emp.id) }}"
+                                  onsubmit="return confirm('Tem certeza que deseja remover este funcionário? Todas as suas férias também serão removidas.');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-danger">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle"></i> Nenhum funcionário cadastrado
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
