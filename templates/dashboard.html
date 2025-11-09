@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Gerenciador de Férias{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-speedometer2"></i> Dashboard</h2>
+
+<!-- Métricas -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card text-center shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Total de Funcionários</h5>
+                <p class="display-4">{{ total_employees }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card text-center shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Períodos de Férias</h5>
+                <p class="display-4">{{ total_vacations }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card text-center shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Férias Ativas</h5>
+                <p class="display-4">{{ active_vacations }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr>
+
+<!-- Próximas Férias -->
+<h4 class="mb-3"><i class="bi bi-calendar-check"></i> Próximas Férias</h4>
+
+{% if upcoming_vacations %}
+    <div class="list-group">
+        {% for vacation in upcoming_vacations %}
+        <div class="list-group-item">
+            <div class="d-flex w-100 justify-content-between align-items-center">
+                <h5 class="mb-1">{{ vacation.name }}</h5>
+                <small class="text-muted">em {{ vacation.days_until }} dias</small>
+            </div>
+            <p class="mb-1">
+                <i class="bi bi-calendar-range"></i>
+                {{ vacation.start_date }} até {{ vacation.end_date }}
+            </p>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> Nenhuma féria programada
+    </div>
+{% endif %}
+{% endblock %}
