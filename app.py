@@ -2,15 +2,42 @@
 Aplicação Flask para Gerenciamento de Férias
 """
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-from datetime import date, datetime
+from flask_wtf.csrf import CSRFProtect
+from datetime import date, datetime, timedelta
 from functools import wraps
+import os
+import secrets
+from dotenv import load_dotenv
 import models
 
+# Carregar variáveis de ambiente
+load_dotenv()
+
 app = Flask(__name__)
-app.secret_key = 'sua-chave-secreta-aqui-mude-em-producao'  # Mude em produção!
+
+# Configurações de segurança
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'False') == 'True'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
+
+# Proteção CSRF
+csrf = CSRFProtect(app)
 
 # Inicializar banco de dados
 models.init_db()
+
+
+# Headers de segurança
+@app.after_request
+def set_security_headers(response):
+    """Adiciona headers de segurança HTTP"""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return response
 
 
 # Decorator para rotas protegidas
@@ -34,12 +61,23 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # Se já estiver logado, redireciona
+    if 'username' in session:
+        return redirect(url_for('dashboard'))
+
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+
+        # Validações básicas
+        if not username or not password:
+            flash('Usuário e senha são obrigatórios', 'danger')
+            return render_template('login.html')
 
         if models.verify_login(username, password):
+            session.clear()
             session['username'] = username
+            session.permanent = True
             flash(f'Bem-vindo, {username}!', 'success')
             return redirect(url_for('dashboard'))
         else:
@@ -50,8 +88,9 @@ def login():
 
 @app.route('/logout')
 def logout():
-    session.pop('username', None)
-    flash('Você saiu com sucesso', 'info')
+    username = session.get('username', 'Usuário')
+    session.clear()
+    flash(f'Até logo, {username}!', 'info')
     return redirect(url_for('login'))
 
 
@@ -107,11 +146,19 @@ def dashboard():
 def funcionarios():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
-        if name:
-            models.add_employee(name)
+
+        # Validações
+        if not name:
+            flash('Digite um nome válido', 'danger')
+        elif len(name) < 2:
+            flash('O nome deve ter pelo menos 2 caracteres', 'danger')
+        elif len(name) > 100:
+            flash('O nome não pode ter mais de 100 caracteres', 'danger')
+        elif models.add_employee(name):
             flash(f'Funcionário {name} adicionado com sucesso!', 'success')
         else:
-            flash('Digite um nome válido', 'danger')
+            flash('Erro ao adicionar funcionário', 'danger')
+
         return redirect(url_for('funcionarios'))
 
     employees_df = models.get_employees()
@@ -123,8 +170,11 @@ def funcionarios():
 @app.route('/funcionarios/delete/<int:employee_id>', methods=['POST'])
 @login_required
 def delete_funcionario(employee_id):
-    models.delete_employee(employee_id)
-    flash('Funcionário removido com sucesso!', 'success')
+    if employee_id <= 0:
+        flash('ID inválido', 'danger')
+    else:
+        models.delete_employee(employee_id)
+        flash('Funcionário removido com sucesso!', 'success')
     return redirect(url_for('funcionarios'))
 
 
@@ -143,20 +193,25 @@ def ferias():
         start_date = request.form.get('start_date')
         end_date = request.form.get('end_date')
 
-        # Converter datas do formato dd/mm/aaaa ou aaaa-mm-dd
-        try:
-            if '/' in start_date:
-                start_obj = datetime.strptime(start_date, '%d/%m/%Y').date()
-                end_obj = datetime.strptime(end_date, '%d/%m/%Y').date()
-            else:
-                start_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-                end_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+        # Validações
+        if not employee_id or not start_date or not end_date:
+            flash('Todos os campos são obrigatórios', 'danger')
+            return redirect(url_for('ferias'))
 
-            if start_obj <= end_obj:
-                models.add_vacation(employee_id, start_obj, end_obj)
+        # Converter datas do formato aaaa-mm-dd
+        try:
+            start_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+
+            # Validações de data
+            if start_obj > end_obj:
+                flash('Data inicial deve ser anterior ou igual à data final', 'danger')
+            elif (end_obj - start_obj).days > 365:
+                flash('Período de férias não pode ser maior que 365 dias', 'danger')
+            elif models.add_vacation(employee_id, start_obj, end_obj):
                 flash('Férias adicionadas com sucesso!', 'success')
             else:
-                flash('Data inicial deve ser anterior à data final', 'danger')
+                flash('Erro ao adicionar férias', 'danger')
         except ValueError:
             flash('Formato de data inválido', 'danger')
 
@@ -172,8 +227,11 @@ def ferias():
 @app.route('/ferias/delete/<int:vacation_id>', methods=['POST'])
 @login_required
 def delete_ferias(vacation_id):
-    models.delete_vacation(vacation_id)
-    flash('Período de férias removido com sucesso!', 'success')
+    if vacation_id <= 0:
+        flash('ID inválido', 'danger')
+    else:
+        models.delete_vacation(vacation_id)
+        flash('Período de férias removido com sucesso!', 'success')
     return redirect(url_for('ferias'))
 
 
@@ -219,26 +277,47 @@ def ranking():
 @login_required
 def configuracoes():
     if request.method == 'POST':
-        current_password = request.form.get('current_password')
-        new_password = request.form.get('new_password')
-        confirm_password = request.form.get('confirm_password')
+        current_password = request.form.get('current_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
 
-        if models.verify_login(session['username'], current_password):
-            if new_password == confirm_password:
-                if len(new_password) >= 6:
-                    models.change_password(session['username'], new_password)
-                    flash('Senha alterada com sucesso!', 'success')
-                else:
-                    flash('A nova senha deve ter pelo menos 6 caracteres', 'danger')
-            else:
-                flash('As senhas não coincidem', 'danger')
-        else:
+        # Validações
+        if not current_password or not new_password or not confirm_password:
+            flash('Todos os campos são obrigatórios', 'danger')
+        elif new_password != confirm_password:
+            flash('As senhas não coincidem', 'danger')
+        elif len(new_password) < 6:
+            flash('A nova senha deve ter pelo menos 6 caracteres', 'danger')
+        elif len(new_password) > 100:
+            flash('A nova senha não pode ter mais de 100 caracteres', 'danger')
+        elif not models.verify_login(session['username'], current_password):
             flash('Senha atual incorreta', 'danger')
+        elif models.change_password(session['username'], new_password):
+            flash('Senha alterada com sucesso!', 'success')
+        else:
+            flash('Erro ao alterar senha', 'danger')
 
         return redirect(url_for('configuracoes'))
 
     return render_template('configuracoes.html')
 
 
+# Handler de erros
+@app.errorhandler(404)
+def page_not_found(e):
+    flash('Página não encontrada', 'warning')
+    return redirect(url_for('index'))
+
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    flash('Erro interno do servidor', 'danger')
+    return redirect(url_for('index'))
+
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Configurações de desenvolvimento
+    debug_mode = os.environ.get('FLASK_DEBUG', 'True') == 'True'
+    port = int(os.environ.get('PORT', 5000))
+
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)
