@@ -1,10 +1,10 @@
-# Gerenciador de Férias - Versão Flask
+# Gerenciador de Férias
 
 Sistema de gerenciamento de férias brasileiro desenvolvido com Flask, SQLite e Bootstrap 5.
 
 ## Sobre o Projeto
 
-Esta é uma versão migrada do sistema originalmente desenvolvido em Streamlit. A aplicação rastreia períodos de férias de funcionários e calcula um ranking baseado em pontos, onde dias de férias valem pontos diferentes dependendo do mês.
+A aplicação rastreia períodos de férias de funcionários e calcula um ranking baseado em pontos, onde dias de férias valem pontos diferentes dependendo do mês.
 
 ### Sistema de Pontuação
 
@@ -32,7 +32,9 @@ ferias/
 │   └── css/
 │       └── style.css      # Estilos customizados
 ├── vacation_manager.db    # Banco de dados SQLite (criado automaticamente)
-└── requirements-flask.txt # Dependências do projeto
+├── requirements.txt        # Dependências do projeto
+├── .gitignore             # Arquivos ignorados pelo Git
+└── README.md              # Este arquivo
 ```
 
 ## Instalação
@@ -54,7 +56,7 @@ source .venv/bin/activate
 ### 2. Instalar dependências
 
 ```bash
-pip install -r requirements-flask.txt
+pip install -r requirements.txt
 ```
 
 ## Executando a Aplicação
@@ -102,28 +104,12 @@ A aplicação estará disponível em: **http://localhost:5000**
 
 ## Tecnologias Utilizadas
 
-- **Backend:** Flask 3.0.0
+- **Backend:** Flask 3.1.0
 - **Banco de Dados:** SQLite3
 - **Frontend:** Bootstrap 5.3.0, Bootstrap Icons
 - **Template Engine:** Jinja2
-- **Data Processing:** Pandas 2.1.4
+- **Data Processing:** Pandas 2.2.3
 - **Autenticação:** Sessions + SHA256 hash
-
-## Diferenças da Versão Streamlit
-
-### Vantagens do Flask
-
-1. **Controle Total:** Maior controle sobre rotas, templates e lógica de negócio
-2. **Escalabilidade:** Mais fácil de escalar e integrar com outros sistemas
-3. **Produção:** Melhor preparado para ambientes de produção
-4. **Performance:** Melhor performance com múltiplos usuários simultâneos
-5. **Flexibilidade:** Facilidade para criar APIs REST, webhooks, etc.
-6. **UI Customizada:** Design totalmente customizado com Bootstrap
-
-### Arquitetura
-
-- **Streamlit:** Abordagem baseada em scripts com reruns automáticos
-- **Flask:** Arquitetura tradicional request-response com rotas RESTful
 
 ## Segurança
 

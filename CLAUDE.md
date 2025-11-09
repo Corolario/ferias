@@ -4,20 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Visão Geral do Projeto
 
-Este é um sistema de gerenciamento de férias brasileiro desenvolvido com Streamlit e SQLite. A aplicação rastreia períodos de férias de funcionários e calcula um ranking baseado em pontos, onde dias de férias valem pontos diferentes dependendo do mês (meses de alta temporada como janeiro, julho e dezembro valem mais pontos).
+Este é um sistema de gerenciamento de férias brasileiro desenvolvido com Flask e SQLite. A aplicação rastreia períodos de férias de funcionários e calcula um ranking baseado em pontos, onde dias de férias valem pontos diferentes dependendo do mês (meses de alta temporada como janeiro, julho e dezembro valem mais pontos).
 
 ## Executando a Aplicação
 
 ```bash
-# Ativar ambiente virtual
-source .venv/bin/activate
+# Ativar ambiente virtual (opcional mas recomendado)
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# ou
+.venv\Scripts\activate     # Windows
 
 # Instalar dependências
 pip install -r requirements.txt
 
 # Executar a aplicação
-streamlit run main.py
+python app.py
 ```
+
+Acesse: `http://localhost:5000`
 
 Credenciais padrão: `admin` / `admin123`
 
@@ -25,23 +30,26 @@ Credenciais padrão: `admin` / `admin123`
 
 ### Estrutura da Aplicação
 
-A aplicação usa uma **arquitetura modular baseada em tabs**:
+A aplicação usa uma **arquitetura Flask MVC simplificada**:
 
-- `main.py` - Ponto de entrada que configura o Streamlit e orquestra as 4 abas principais
-- `database.py` - Função de inicialização do banco de dados (atualmente incompleta/não utilizada)
-- Diretório `pags/` - Contém módulos de renderização para cada aba:
-  - `dashboard.py` - Visão geral do dashboard
-  - `funcionarios.py` - Gerenciamento de funcionários
-  - `ferias.py` - Gerenciamento de períodos de férias
-  - `ranking.py` - Exibição do ranking por pontos
-
-**Importante**: A implementação atual nos módulos `pags/` é apenas código placeholder. A implementação real e funcional existe no arquivo monolítico `oldapp.py`. A refatoração para estrutura modular (main.py + pags/) está incompleta.
+- `app.py` - Aplicação Flask principal com todas as rotas e lógica de controle
+- `models.py` - Funções de banco de dados e lógica de negócio
+- `templates/` - Templates Jinja2 para renderização HTML:
+  - `base.html` - Template base com navbar e estrutura comum
+  - `login.html` - Página de autenticação
+  - `dashboard.html` - Dashboard com métricas e próximas férias
+  - `funcionarios.html` - CRUD de funcionários
+  - `ferias.html` - CRUD de períodos de férias
+  - `ranking.html` - Exibição do ranking por pontos
+  - `configuracoes.html` - Alteração de senha
+- `static/css/` - Arquivos CSS customizados
+- `vacation_manager.db` - Banco de dados SQLite (criado automaticamente)
 
 ### Schema do Banco de Dados
 
 Banco de dados SQLite (`vacation_manager.db`) com 3 tabelas:
 
-1. **users** - Autenticação (username, password_hash)
+1. **users** - Autenticação (id, username, password_hash)
 2. **employees** - Registros de funcionários (id, name, created_at)
 3. **vacations** - Períodos de férias com FK para employees (id, employee_id, start_date, end_date, created_at)
 
@@ -56,46 +64,124 @@ A lógica de negócio central é o **cálculo de pontos baseado em meses**:
 - Baixa temporada (Agosto): 3 pontos/dia
 - Outros meses: 5-7 pontos/dia
 
-O cálculo em `calculate_vacation_points()` (oldapp.py:200-228) itera por cada dia de um período de férias, distribui os dias entre os meses, depois multiplica pelos valores de pontos dos meses. Isso permite que férias de múltiplos meses sejam pontuadas corretamente.
+O cálculo em `calculate_vacation_points()` (models.py) itera por cada dia de um período de férias, distribui os dias entre os meses, depois multiplica pelos valores de pontos dos meses. Isso permite que férias de múltiplos meses sejam pontuadas corretamente.
 
 O ranking ordena funcionários do **menor para o maior número de pontos** (crescente) - ganha o funcionário que tirou férias nos períodos de menor demanda.
 
-## Notas de Desenvolvimento
+## Rotas da Aplicação
 
-### Estado Atual
+### Autenticação
+- `GET /` - Redireciona para dashboard ou login
+- `GET/POST /login` - Página de login
+- `GET /logout` - Encerrar sessão
 
-- `oldapp.py` contém a aplicação completa e funcional (580 linhas)
-- `main.los `pags/` representam uma tentativa incompleta de refatoração
-- Todos os módulos de página atualmente renderizam apenas texto placeholder ("333333333333")
-- O arquivo `database.py` tem a lógica de init mas não é importado/usado no main.py
+### Páginas Principais (requerem autenticação)
+- `GET /dashboard` - Dashboard com métricas
+- `GET/POST /funcionarios` - Listar e adicionar funcionários
+- `POST /funcionarios/delete/<id>` - Remover funcionário
+- `GET/POST /ferias` - Listar e adicionar férias
+- `POST /ferias/delete/<id>` - Remover período de férias
+- `GET /ranking` - Exibir ranking de pontos
+- `GET/POST /configuracoes` - Alterar senha
 
-### Para Completar a Refatoração
+## Padrões de Código
 
-O código funcional de `oldapp.py` precisa ser extraído para a estrutura modular:
-
-1. Mover funções de banco de dados do oldapp.py para database.py
-2. Extrair a lógica de cada aba (dashboard, funcionarios, ferias, ranking) para os respectivos módulos em pags/
-3. Mover lógica de autenticação para um módulo separado ou manter no main.py
-4. Garantir que o gerenciamento de session state funcione entre os módulos
-
-### Padrão de Tratamento de Datas
+### Tratamento de Datas
 
 O código usa um padrão específico para formatação de datas:
 - Banco de dados armazena datas como strings 'YYYY-MM-DD'
 - UI exibe datas como 'dd/mm/aaaa' (formato brasileiro)
 - Conversões acontecem nas funções getter usando pandas: `pd.to_datetime(df['date']).dt.strftime('%d/%m/%Y')`
+- Input type="date" em HTML usa formato 'YYYY-MM-DD'
 
-### Session State
+### Sessions
 
-O session state do Streamlit é usado para:
-- `logged_in` - Status de autenticação
-- `username` - Usuário atual
-- `show_employee_success` / `show_vacation_success` - Flags de mensagens de sucesso
+Flask sessions são usadas para:
+- `username` - Usuário autenticado
+- Flash messages para feedback ao usuário (success, danger, warning, info)
+
+### Decorator de Autenticação
+
+Rotas protegidas usam o decorator `@login_required` que:
+1. Verifica se 'username' existe na sessão
+2. Redireciona para login se não autenticado
+3. Exibe flash message de aviso
+
+## Tecnologias e Dependências
+
+- **Flask 3.1.0** - Framework web
+- **Pandas 2.2.3** - Processamento de dados
+- **SQLite3** - Banco de dados (built-in Python)
+- **Bootstrap 5.3.0** - Framework CSS (via CDN)
+- **Jinja2** - Template engine (incluído com Flask)
+
+## Desenvolvimento
+
+### Estrutura de Arquivos
+
+```
+ferias/
+├── app.py                  # Aplicação Flask principal
+├── models.py               # Funções de BD e lógica
+├── templates/              # Templates Jinja2
+│   ├── base.html
+│   ├── login.html
+│   ├── dashboard.html
+│   ├── funcionarios.html
+│   ├── ferias.html
+│   ├── ranking.html
+│   └── configuracoes.html
+├── static/
+│   └── css/
+│       └── style.css       # CSS customizado
+├── vacation_manager.db     # Banco de dados
+├── requirements.txt        # Dependências
+├── .gitignore             # Git ignore
+└── README.md              # Documentação
+```
+
+### Adicionando Novas Funcionalidades
+
+1. **Nova rota**: Adicionar em `app.py` com decorator `@login_required` se necessário
+2. **Nova função de BD**: Adicionar em `models.py`
+3. **Nova página**: Criar template em `templates/` estendendo `base.html`
+4. **Novo estilo**: Adicionar em `static/css/style.css`
+
+### Debug Mode
+
+O app roda em modo debug por padrão (`debug=True` em app.py).
+
+**IMPORTANTE**: Desativar debug em produção e configurar:
+- SECRET_KEY segura (usar variável de ambiente)
+- Servidor WSGI (Gunicorn, uWSGI)
+- HTTPS
+- Proteção CSRF
 
 ## Testes
 
-Não existe suite de testes atualmente. Testes manuais requerem:
+Não existe suite de testes automatizados atualmente. Testes manuais devem verificar:
 
-1. Executar o app e testar operações CRUD de cada aba
-2. Verificar cálculos de pontos com períodos de férias de múltiplos meses
-3. Testar casos extremos: férias de um dia, férias atravessando ano, cascade de exclusão de funcionário
+1. Autenticação (login/logout)
+2. CRUD de funcionários
+3. CRUD de férias com validação de datas
+4. Cálculo correto de pontos no ranking
+5. Cascade delete (remover funcionário remove suas férias)
+6. Alteração de senha
+7. Flash messages em todas as operações
+8. Responsividade mobile
+
+### Casos de Teste Importantes
+
+- Férias de um único dia
+- Férias atravessando múltiplos meses
+- Férias atravessando ano novo
+- Período de férias com data inicial > data final (deve ser rejeitado)
+- Funcionário sem férias cadastradas (deve aparecer no ranking com 0 pontos)
+
+## Segurança
+
+⚠️ **Atenção**:
+- Senha usa SHA256 (adequado para desenvolvimento, usar bcrypt em produção)
+- SECRET_KEY está hardcoded (mover para variável de ambiente em produção)
+- Sem proteção CSRF (adicionar Flask-WTF para produção)
+- Debug mode ativado (desativar em produção)
