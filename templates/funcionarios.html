@@ -46,7 +46,7 @@
                             <tbody>
                                 {% for emp in employees %}
                                 <tr>
-                                    <td><strong>{{ emp.name }}</strong></td>
+                                    <td>{{ emp.name }}</td>
                                     <td class="text-center">
                                         <form method="POST" action="{{ url_for('delete_funcionario', employee_id=emp.id) }}"
                                               onsubmit="return confirm('Tem certeza que deseja remover este funcionário? Todas as suas férias também serão removidas.');"
