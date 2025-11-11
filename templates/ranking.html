@@ -9,19 +9,24 @@
 <div class="card shadow-sm mb-4">
     <div class="card-header">
         <h5 class="mb-0">
-            <i class="bi bi-calendar3"></i> Tabela de Pontos por Mês
+            <button class="btn btn-link text-decoration-none text-dark w-100 text-start p-0" type="button" data-bs-toggle="collapse" data-bs-target="#monthPointsTable" aria-expanded="false" aria-controls="monthPointsTable">
+                <i class="bi bi-calendar3"></i> Tabela de Pontos por Mês
+                <i class="bi bi-chevron-down float-end"></i>
+            </button>
         </h5>
     </div>
-    <div class="card-body">
-        <div class="row">
-            {% for month_data in month_points_list %}
-            <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
-                <div class="text-center">
-                    <strong>{{ month_data.name }}</strong><br>
-                    <span class="badge bg-primary">{{ month_data.points }} pts</span>
+    <div class="collapse" id="monthPointsTable">
+        <div class="card-body">
+            <div class="row">
+                {% for month_data in month_points_list %}
+                <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-3">
+                    <div class="text-center">
+                        <strong>{{ month_data.name }}</strong><br>
+                        <span class="badge bg-primary">{{ month_data.points }} pts</span>
+                    </div>
                 </div>
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
     </div>
 </div>
