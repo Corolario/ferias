@@ -3,6 +3,7 @@ Aplicação Flask para Gerenciamento de Férias
 """
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_wtf.csrf import CSRFProtect
+from flask_bootstrap import Bootstrap5
 from datetime import date, datetime, timedelta
 from functools import wraps
 import os
@@ -24,6 +25,9 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
 
 # Proteção CSRF
 csrf = CSRFProtect(app)
+
+# Inicializar Bootstrap
+bootstrap = Bootstrap5(app)
 
 # Inicializar banco de dados
 models.init_db()
@@ -191,29 +195,33 @@ def ferias():
     if request.method == 'POST':
         employee_id = request.form.get('employee_id')
         start_date = request.form.get('start_date')
-        end_date = request.form.get('end_date')
+        days = request.form.get('days')
 
         # Validações
-        if not employee_id or not start_date or not end_date:
+        if not employee_id or not start_date or not days:
             flash('Todos os campos são obrigatórios', 'danger')
             return redirect(url_for('ferias'))
 
-        # Converter datas do formato aaaa-mm-dd
+        # Converter data e calcular data final
         try:
             start_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-            end_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            days_int = int(days)
 
-            # Validações de data
-            if start_obj > end_obj:
-                flash('Data inicial deve ser anterior ou igual à data final', 'danger')
-            elif (end_obj - start_obj).days > 365:
+            # Validações
+            if days_int < 1:
+                flash('Quantidade de dias deve ser pelo menos 1', 'danger')
+            elif days_int > 365:
                 flash('Período de férias não pode ser maior que 365 dias', 'danger')
-            elif models.add_vacation(employee_id, start_obj, end_obj):
-                flash('Férias adicionadas com sucesso!', 'success')
             else:
-                flash('Erro ao adicionar férias', 'danger')
+                # Calcular data final (se são 5 dias, vai do dia 1 ao dia 5)
+                end_obj = start_obj + timedelta(days=days_int - 1)
+
+                if models.add_vacation(employee_id, start_obj, end_obj):
+                    flash('Férias adicionadas com sucesso!', 'success')
+                else:
+                    flash('Erro ao adicionar férias', 'danger')
         except ValueError:
-            flash('Formato de data inválido', 'danger')
+            flash('Formato de data ou quantidade de dias inválido', 'danger')
 
         return redirect(url_for('ferias'))
 
