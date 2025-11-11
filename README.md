@@ -1,6 +1,6 @@
 # Gerenciador de Férias
 
-Sistema de gerenciamento de férias brasileiro desenvolvido com Flask, SQLite e Bootstrap 5.
+Sistema de gerenciamento de férias desenvolvido com Flask.
 
 ## Sobre o Projeto
 
@@ -88,14 +88,12 @@ A aplicação estará disponível em: **http://localhost:5000**
 - Cadastrar períodos de férias
 - Visualizar todos os períodos cadastrados
 - Remover períodos de férias
-- Validação de datas (data inicial ≤ data final)
 
 ### 🏆 Ranking
 - Visualização do ranking de pontos
 - Tabela de referência de pontos por mês
 - Detalhamento de pontos por funcionário
 - Breakdown de dias e pontos por mês (expansível)
-- Medalhas para top 3 colocados
 
 ### ⚙️ Configurações
 - Alteração de senha do usuário
