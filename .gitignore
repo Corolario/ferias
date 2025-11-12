@@ -21,7 +21,7 @@ instance/
 .env.*.local
 
 # Database (não comitar banco com dados sensíveis)
-# vacation_manager.db
+vacation_manager.db
 
 # IDE
 .vscode/
