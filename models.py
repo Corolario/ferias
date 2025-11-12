@@ -164,7 +164,7 @@ def get_vacations():
         SELECT v.id, e.name, v.start_date, v.end_date, e.id as employee_id
         FROM vacations v
         JOIN employees e ON v.employee_id = e.id
-        ORDER BY v.start_date DESC
+        ORDER BY v.start_date ASC, e.name ASC
     '''
     df = pd.read_sql_query(query, conn)
     conn.close()
