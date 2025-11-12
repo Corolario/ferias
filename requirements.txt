@@ -6,6 +6,9 @@ Bootstrap-Flask==2.5.0
 # Data processing
 pandas==2.2.3
 
+# Geração de PDF
+reportlab==4.2.5
+
 # Segurança
 bcrypt==4.2.1
 Flask-WTF==1.2.2

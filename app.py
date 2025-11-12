@@ -1,7 +1,7 @@
 """
 Aplicação Flask para Gerenciamento de Férias
 """
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
 from flask_wtf.csrf import CSRFProtect
 from flask_bootstrap import Bootstrap5
 from datetime import date, datetime, timedelta
@@ -287,6 +287,25 @@ def ranking():
     return render_template('ranking.html',
                          ranking_data=ranking_data,
                          month_points_list=month_points_list)
+
+
+@app.route('/ranking/pdf')
+@login_required
+def ranking_pdf():
+    """Gera e baixa PDF do ranking"""
+    try:
+        pdf_buffer = models.generate_ranking_pdf()
+        filename = f'ranking_ferias_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+
+        return send_file(
+            pdf_buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        flash(f'Erro ao gerar PDF: {str(e)}', 'danger')
+        return redirect(url_for('ranking'))
 
 
 # Rota de Configurações
