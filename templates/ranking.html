@@ -3,7 +3,14 @@
 {% block title %}Ranking - Gerenciador de Férias{% endblock %}
 
 {% block content %}
-<h2 class="mb-4"><i class="bi bi-trophy-fill"></i> Ranking de Pontos</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-trophy-fill"></i> Ranking de Pontos</h2>
+    {% if ranking_data %}
+    <a href="{{ url_for('ranking_pdf') }}" class="btn btn-primary">
+        <i class="bi bi-file-pdf"></i> Gerar Relatório PDF
+    </a>
+    {% endif %}
+</div>
 
 <!-- Tabela de Pontos por Mês -->
 <div class="card shadow-sm mb-4">

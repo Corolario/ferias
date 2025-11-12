@@ -5,6 +5,13 @@ import sqlite3
 import bcrypt
 from datetime import datetime, timedelta
 import pandas as pd
+from io import BytesIO
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 
 def init_db():
@@ -313,3 +320,170 @@ def get_employee_ranking():
     ranking_data.sort(key=lambda x: x['total_points'])
 
     return ranking_data
+
+
+def generate_ranking_pdf():
+    """Gera PDF do ranking de funcionários"""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
+    elements = []
+
+    # Estilos
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor=colors.HexColor('#2c3e50'),
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor=colors.HexColor('#34495e'),
+        spaceAfter=12,
+        spaceBefore=20,
+        fontName='Helvetica-Bold'
+    )
+
+    # Título do documento
+    title = Paragraph("Relatório de Ranking de Férias", title_style)
+    elements.append(title)
+
+    # Data do relatório
+    date_text = f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    date_para = Paragraph(date_text, styles['Normal'])
+    elements.append(date_para)
+    elements.append(Spacer(1, 0.5*cm))
+
+    # Obter dados do ranking
+    ranking_data = get_employee_ranking()
+    month_points = get_month_points()
+    month_names = {
+        1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+        5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+        9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+    }
+
+    # ========== SEÇÃO 1: CLASSIFICAÇÃO ==========
+    classification_heading = Paragraph("Classificação", heading_style)
+    elements.append(classification_heading)
+
+    # Tabela de classificação (apenas posição e nome)
+    classification_data = [['Posição', 'Nome']]
+    for idx, emp in enumerate(ranking_data, 1):
+        classification_data.append([str(idx), emp['name']])
+
+    classification_table = Table(classification_data, colWidths=[3*cm, 14*cm])
+    classification_table.setStyle(TableStyle([
+        # Cabeçalho
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('TOPPADDING', (0, 0), (-1, 0), 12),
+
+        # Corpo
+        ('ALIGN', (0, 1), (0, -1), 'CENTER'),
+        ('ALIGN', (1, 1), (1, -1), 'LEFT'),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#ecf0f1')]),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('TOPPADDING', (0, 1), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+    ]))
+
+    elements.append(classification_table)
+    elements.append(PageBreak())
+
+    # ========== SEÇÃO 2: DETALHES POR FUNCIONÁRIO ==========
+    details_heading = Paragraph("Detalhes por Funcionário", heading_style)
+    elements.append(details_heading)
+    elements.append(Spacer(1, 0.3*cm))
+
+    for idx, emp in enumerate(ranking_data, 1):
+        # Nome do funcionário
+        emp_name_style = ParagraphStyle(
+            'EmpName',
+            parent=styles['Normal'],
+            fontSize=12,
+            textColor=colors.HexColor('#2c3e50'),
+            fontName='Helvetica-Bold',
+            spaceAfter=8
+        )
+        emp_heading = Paragraph(f"{idx}. {emp['name']}", emp_name_style)
+        elements.append(emp_heading)
+
+        # Verificar se tem férias
+        if emp['month_details']:
+            # Tabela de detalhes por mês
+            detail_data = [['Mês', 'Dias', 'Pontos/Dia', 'Total']]
+
+            for month, days in sorted(emp['month_details'].items()):
+                points_per_day = month_points[month]
+                total_points = days * points_per_day
+                detail_data.append([
+                    month_names[month],
+                    str(days),
+                    str(points_per_day),
+                    str(total_points)
+                ])
+
+            # Linha de total
+            detail_data.append([
+                'TOTAL',
+                str(emp['total_days']),
+                '',
+                f"{emp['total_points']} pontos"
+            ])
+
+            detail_table = Table(detail_data, colWidths=[5*cm, 3*cm, 3*cm, 3*cm])
+            detail_table.setStyle(TableStyle([
+                # Cabeçalho
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#95a5a6')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('TOPPADDING', (0, 0), (-1, 0), 8),
+
+                # Corpo
+                ('ALIGN', (0, 1), (0, -2), 'LEFT'),
+                ('ALIGN', (1, 1), (-1, -2), 'CENTER'),
+                ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -2), 9),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#ecf0f1')]),
+                ('GRID', (0, 0), (-1, -2), 0.5, colors.grey),
+                ('TOPPADDING', (0, 1), (-1, -2), 6),
+                ('BOTTOMPADDING', (0, 1), (-1, -2), 6),
+
+                # Linha de total
+                ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#3498db')),
+                ('TEXTCOLOR', (0, -1), (-1, -1), colors.whitesmoke),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('ALIGN', (0, -1), (-1, -1), 'CENTER'),
+                ('TOPPADDING', (0, -1), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, -1), (-1, -1), 8),
+            ]))
+
+            elements.append(detail_table)
+        else:
+            # Funcionário sem férias
+            no_vacation_text = Paragraph("Sem períodos de férias cadastrados", styles['Italic'])
+            elements.append(no_vacation_text)
+
+        # Espaçamento entre funcionários
+        elements.append(Spacer(1, 0.5*cm))
+
+    # Construir PDF
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
