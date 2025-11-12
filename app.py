@@ -126,8 +126,8 @@ def dashboard():
         ]
         active_vacations = len(active)
 
-        # Próximas férias
-        upcoming = vacations_df[vacations_df['start_date_obj'] >= today].head(5)
+        # Próximas férias - ordenar por data crescente e nome alfabético
+        upcoming = vacations_df[vacations_df['start_date_obj'] >= today].sort_values(by=['start_date_obj', 'name']).head(5)
         for _, row in upcoming.iterrows():
             days_until = (row['start_date_obj'] - today).days
             upcoming_vacations.append({
