@@ -266,9 +266,26 @@ def ranking():
     }
 
     # Adicionar detalhes formatados aos dados do ranking
+    import sqlite3
+    import pandas as pd
+
+    # Buscar todas as férias
+    conn = sqlite3.connect('vacation_manager.db')
+    all_vacations_query = '''
+        SELECT v.employee_id, e.name as employee_name, v.start_date, v.end_date
+        FROM vacations v
+        JOIN employees e ON v.employee_id = e.id
+        ORDER BY v.start_date ASC
+    '''
+    all_vacations_df = pd.read_sql_query(all_vacations_query, conn)
+    conn.close()
+
     for emp in ranking_data:
         emp['month_breakdown'] = []
+        emp['periods_breakdown'] = []
+
         if emp['month_details']:
+            # Agregado por mês (para compatibilidade)
             for month, days in sorted(emp['month_details'].items()):
                 points_for_month = days * month_points[month]
                 emp['month_breakdown'].append({
@@ -276,6 +293,57 @@ def ranking():
                     'days': days,
                     'points_per_day': month_points[month],
                     'total_points': points_for_month
+                })
+
+        # Buscar períodos individuais deste funcionário
+        emp_vacations = all_vacations_df[all_vacations_df['employee_name'] == emp['name']]
+
+        if not emp_vacations.empty:
+            for idx, (_, vacation) in enumerate(emp_vacations.iterrows(), 1):
+                start_date = datetime.strptime(vacation['start_date'], '%Y-%m-%d').date()
+                end_date = datetime.strptime(vacation['end_date'], '%Y-%m-%d').date()
+
+                # Calcular pontos e breakdown por mês deste período
+                period_points, days_by_month = models.calculate_vacation_points(start_date, end_date)
+                period_days = (end_date - start_date).days + 1
+
+                # Formatar datas no formato brasileiro
+                start_date_br = start_date.strftime('%d/%m/%y')
+                end_date_br = end_date.strftime('%d/%m/%y')
+
+                # Breakdown por mês do período
+                month_details = []
+                for month, days in sorted(days_by_month.items()):
+                    # Encontrar primeiro e último dia do período neste mês
+                    current = start_date
+                    first_day_in_month = None
+                    last_day_in_month = None
+
+                    while current <= end_date:
+                        if current.month == month:
+                            if first_day_in_month is None:
+                                first_day_in_month = current.day
+                            last_day_in_month = current.day
+                        current = current + timedelta(days=1)
+
+                    points_per_day = month_points[month]
+                    month_total_points = days * points_per_day
+
+                    month_details.append({
+                        'month_name': month_names[month],
+                        'day_range': f"{first_day_in_month:02d} - {last_day_in_month:02d}",
+                        'days': days,
+                        'points_per_day': points_per_day,
+                        'total_points': month_total_points
+                    })
+
+                emp['periods_breakdown'].append({
+                    'period_number': idx,
+                    'start_date': start_date_br,
+                    'end_date': end_date_br,
+                    'total_days': period_days,
+                    'total_points': period_points,
+                    'month_details': month_details
                 })
 
     # Criar lista de pontos por mês para exibição
