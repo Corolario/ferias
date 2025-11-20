@@ -408,46 +408,114 @@ def generate_ranking_pdf():
     elements.append(details_heading)
     elements.append(Spacer(1, 0.3*cm))
 
+    # Buscar férias de cada funcionário
+    conn = sqlite3.connect('vacation_manager.db')
+    vacations_query = '''
+        SELECT employee_id, start_date, end_date
+        FROM vacations
+        ORDER BY start_date ASC
+    '''
+    all_vacations_df = pd.read_sql_query(vacations_query, conn)
+    conn.close()
+
     for idx, emp in enumerate(ranking_data, 1):
-        # Nome do funcionário
-        emp_name_style = ParagraphStyle(
-            'EmpName',
-            parent=styles['Normal'],
-            fontSize=12,
-            textColor=colors.HexColor('#2c3e50'),
-            fontName='Helvetica-Bold',
-            spaceAfter=8
-        )
-        emp_heading = Paragraph(f"{idx}. {emp['name']}", emp_name_style)
-        elements.append(emp_heading)
+        # Buscar o employee_id do funcionário
+        conn = sqlite3.connect('vacation_manager.db')
+        emp_id_query = 'SELECT id FROM employees WHERE name = ?'
+        emp_id_result = pd.read_sql_query(emp_id_query, conn, params=(emp['name'],))
+        conn.close()
+
+        if emp_id_result.empty:
+            continue
+
+        employee_id = emp_id_result.iloc[0]['id']
+
+        # Filtrar férias deste funcionário
+        emp_vacations = all_vacations_df[all_vacations_df['employee_id'] == employee_id]
 
         # Verificar se tem férias
-        if emp['month_details']:
-            # Tabela de detalhes por mês
-            detail_data = [['Mês', 'Dias', 'Pontos/Dia', 'Total']]
+        if not emp_vacations.empty:
+            # Criar tabela completa para este funcionário
+            table_data = []
 
-            for month, days in sorted(emp['month_details'].items()):
-                points_per_day = month_points[month]
-                total_points = days * points_per_day
-                detail_data.append([
-                    month_names[month],
-                    str(days),
-                    str(points_per_day),
-                    str(total_points)
-                ])
-
-            # Linha de total
-            detail_data.append([
-                'TOTAL',
-                str(emp['total_days']),
-                '',
-                f"{emp['total_points']} pontos"
+            # Cabeçalho da tabela
+            table_data.append([
+                f"{idx}. {emp['name']}",
+                'Dias',
+                'Pts/mês',
+                'Total'
             ])
 
-            detail_table = Table(detail_data, colWidths=[5*cm, 3*cm, 3*cm, 3*cm])
-            detail_table.setStyle(TableStyle([
-                # Cabeçalho
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#95a5a6')),
+            grand_total_days = 0
+            grand_total_points = 0
+
+            # Para cada período de férias
+            for period_idx, (_, vacation) in enumerate(emp_vacations.iterrows(), 1):
+                start_date = datetime.strptime(vacation['start_date'], '%Y-%m-%d').date()
+                end_date = datetime.strptime(vacation['end_date'], '%Y-%m-%d').date()
+
+                # Calcular pontos e breakdown por mês deste período
+                period_points, days_by_month = calculate_vacation_points(start_date, end_date)
+                period_days = (end_date - start_date).days + 1
+
+                # Formatar datas no formato brasileiro
+                start_date_br = start_date.strftime('%d/%m/%y')
+                end_date_br = end_date.strftime('%d/%m/%y')
+
+                # Linha do período
+                table_data.append([
+                    f"Período {period_idx} ({start_date_br} - {end_date_br})",
+                    str(period_days),
+                    '',
+                    str(period_points)
+                ])
+
+                # Breakdown por mês
+                for month, days in sorted(days_by_month.items()):
+                    # Calcular datas do mês
+                    month_start = start_date
+                    month_end = end_date
+
+                    # Encontrar primeiro e último dia do período neste mês
+                    current = start_date
+                    first_day_in_month = None
+                    last_day_in_month = None
+
+                    while current <= end_date:
+                        if current.month == month:
+                            if first_day_in_month is None:
+                                first_day_in_month = current.day
+                            last_day_in_month = current.day
+                        current = current + timedelta(days=1)
+
+                    points_per_day = month_points[month]
+                    month_total_points = days * points_per_day
+
+                    table_data.append([
+                        f"{month_names[month]} ({first_day_in_month:02d} - {last_day_in_month:02d})",
+                        str(days),
+                        str(points_per_day),
+                        str(month_total_points)
+                    ])
+
+                grand_total_days += period_days
+                grand_total_points += period_points
+
+            # Linha de total geral
+            table_data.append([
+                'Total',
+                str(grand_total_days),
+                '',
+                str(grand_total_points)
+            ])
+
+            # Criar tabela
+            detail_table = Table(table_data, colWidths=[10*cm, 2*cm, 2*cm, 2*cm])
+
+            # Estilos da tabela
+            table_style = [
+                # Cabeçalho (primeira linha)
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -455,29 +523,40 @@ def generate_ranking_pdf():
                 ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
                 ('TOPPADDING', (0, 0), (-1, 0), 8),
 
-                # Corpo
+                # Corpo - todas as outras linhas exceto a última
                 ('ALIGN', (0, 1), (0, -2), 'LEFT'),
                 ('ALIGN', (1, 1), (-1, -2), 'CENTER'),
                 ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
                 ('FONTSIZE', (0, 1), (-1, -2), 9),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#ecf0f1')]),
-                ('GRID', (0, 0), (-1, -2), 0.5, colors.grey),
-                ('TOPPADDING', (0, 1), (-1, -2), 6),
-                ('BOTTOMPADDING', (0, 1), (-1, -2), 6),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('TOPPADDING', (0, 1), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
 
-                # Linha de total
-                ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#3498db')),
+                # Linha de total (última linha)
+                ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#2c3e50')),
                 ('TEXTCOLOR', (0, -1), (-1, -1), colors.whitesmoke),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
                 ('ALIGN', (0, -1), (-1, -1), 'CENTER'),
                 ('TOPPADDING', (0, -1), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, -1), (-1, -1), 8),
-            ]))
+            ]
 
+            # Identificar linhas de período (começam com "Período")
+            # e aplicar background cinza claro
+            for row_idx, row in enumerate(table_data[1:-1], 1):  # Pula cabeçalho e total
+                if row[0].startswith('Período'):
+                    table_style.append(
+                        ('BACKGROUND', (0, row_idx), (-1, row_idx), colors.HexColor('#ecf0f1'))
+                    )
+                    table_style.append(
+                        ('FONTNAME', (0, row_idx), (-1, row_idx), 'Helvetica-Bold')
+                    )
+
+            detail_table.setStyle(TableStyle(table_style))
             elements.append(detail_table)
         else:
             # Funcionário sem férias
-            no_vacation_text = Paragraph("Sem períodos de férias cadastrados", styles['Italic'])
+            no_vacation_text = Paragraph(f"{idx}. {emp['name']} - Sem períodos de férias cadastrados", styles['Italic'])
             elements.append(no_vacation_text)
 
         # Espaçamento entre funcionários

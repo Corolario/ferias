@@ -23,6 +23,9 @@ instance/
 # Database (não comitar banco com dados sensíveis)
 vacation_manager.db
 
+# Test files
+test_*.pdf
+
 # IDE
 .vscode/
 .idea/
