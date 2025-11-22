@@ -279,6 +279,10 @@ def ferias():
         vacations_df['start_date_obj'] = pd.to_datetime(vacations_df['start_date'], format='%d/%m/%Y')
         vacations_df['end_date_obj'] = pd.to_datetime(vacations_df['end_date'], format='%d/%m/%Y')
         vacations_df['num_days'] = (vacations_df['end_date_obj'] - vacations_df['start_date_obj']).dt.days + 1
+
+        # Ordenar por nome alfabético
+        vacations_df = vacations_df.sort_values(by='name')
+
         vacations = vacations_df.to_dict('records')
     else:
         vacations = []

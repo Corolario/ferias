@@ -22,6 +22,7 @@
                         <div class="mb-3">
                             <label for="employee_id" class="form-label">Funcionário</label>
                             <select class="form-select" id="employee_id" name="employee_id" required>
+                                <option value="" selected disabled>--- Selecione um funcionário ---</option>
                                 {% for emp in employees %}
                                 <option value="{{ emp.id }}">{{ emp.name }}</option>
                                 {% endfor %}
