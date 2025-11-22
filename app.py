@@ -102,75 +102,91 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    employees_df = models.get_employees()
-    vacations_df = models.get_vacations()
+    try:
+        employees_df = models.get_employees()
+        vacations_df = models.get_vacations()
 
-    total_employees = len(employees_df)
-    total_vacations = len(vacations_df)
+        total_employees = len(employees_df)
+        total_vacations = len(vacations_df)
 
-    # Férias ativas (em andamento)
-    today = date.today()
-    active_vacations = 0
-    vacations_by_year_month = {}
+        # Férias ativas (em andamento)
+        today = date.today()
+        active_vacations = 0
+        vacations_by_year_month = {}
 
-    if not vacations_df.empty:
-        # Converter strings dd/mm/aaaa para objetos date
-        import pandas as pd
-        vacations_df['start_date_obj'] = pd.to_datetime(vacations_df['start_date'], format='%d/%m/%Y').dt.date
-        vacations_df['end_date_obj'] = pd.to_datetime(vacations_df['end_date'], format='%d/%m/%Y').dt.date
+        if not vacations_df.empty:
+            # Converter strings dd/mm/aaaa para objetos datetime do pandas primeiro
+            import pandas as pd
+            vacations_df['start_date_dt'] = pd.to_datetime(vacations_df['start_date'], format='%d/%m/%Y')
+            vacations_df['end_date_dt'] = pd.to_datetime(vacations_df['end_date'], format='%d/%m/%Y')
 
-        # Contar férias ativas
-        active = vacations_df[
-            (vacations_df['start_date_obj'] <= today) &
-            (vacations_df['end_date_obj'] >= today)
-        ]
-        active_vacations = len(active)
+            # Calcular número de dias para cada período (ANTES de converter para date)
+            vacations_df['num_days'] = (vacations_df['end_date_dt'] - vacations_df['start_date_dt']).dt.days + 1
 
-        # Calcular número de dias para cada período
-        vacations_df['num_days'] = (vacations_df['end_date_obj'] - vacations_df['start_date_obj']).dt.days + 1
+            # Agora converter para objetos date do Python
+            vacations_df['start_date_obj'] = vacations_df['start_date_dt'].dt.date
+            vacations_df['end_date_obj'] = vacations_df['end_date_dt'].dt.date
 
-        # Extrair ano e mês da data de início
-        vacations_df['year'] = vacations_df['start_date_obj'].apply(lambda x: x.year)
-        vacations_df['month'] = vacations_df['start_date_obj'].apply(lambda x: x.month)
+            # Contar férias ativas
+            active = vacations_df[
+                (vacations_df['start_date_obj'] <= today) &
+                (vacations_df['end_date_obj'] >= today)
+            ]
+            active_vacations = len(active)
 
-        # Formatar datas no formato brasileiro curto (dd/mm/aa)
-        vacations_df['start_date_short'] = vacations_df['start_date_obj'].apply(lambda x: x.strftime('%d/%m/%y'))
-        vacations_df['end_date_short'] = vacations_df['end_date_obj'].apply(lambda x: x.strftime('%d/%m/%y'))
+            # Extrair ano e mês da data de início
+            vacations_df['year'] = vacations_df['start_date_obj'].apply(lambda x: x.year)
+            vacations_df['month'] = vacations_df['start_date_obj'].apply(lambda x: x.month)
 
-        # Ordenar por ano, mês e data de início
-        vacations_df = vacations_df.sort_values(by=['year', 'month', 'start_date_obj'])
+            # Formatar datas no formato brasileiro curto (dd/mm/aa)
+            vacations_df['start_date_short'] = vacations_df['start_date_obj'].apply(lambda x: x.strftime('%d/%m/%y'))
+            vacations_df['end_date_short'] = vacations_df['end_date_obj'].apply(lambda x: x.strftime('%d/%m/%y'))
 
-        # Nomes dos meses em português
-        month_names = {
-            1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
-            5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
-            9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
-        }
+            # Ordenar por ano, mês e data de início
+            vacations_df = vacations_df.sort_values(by=['year', 'month', 'start_date_obj'])
 
-        # Agrupar férias por ano e mês
-        for _, row in vacations_df.iterrows():
-            year = row['year']
-            month = row['month']
-            month_name = month_names[month]
+            # Nomes dos meses em português
+            month_names = {
+                1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+                5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+                9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+            }
 
-            if year not in vacations_by_year_month:
-                vacations_by_year_month[year] = {}
+            # Agrupar férias por ano e mês
+            for _, row in vacations_df.iterrows():
+                year = int(row['year'])  # Converter para int nativo do Python
+                month = int(row['month'])  # Converter para int nativo do Python
+                month_name = month_names[month]
 
-            if month_name not in vacations_by_year_month[year]:
-                vacations_by_year_month[year][month_name] = []
+                if year not in vacations_by_year_month:
+                    vacations_by_year_month[year] = {}
 
-            vacations_by_year_month[year][month_name].append({
-                'name': row['name'],
-                'start_date': row['start_date_short'],
-                'end_date': row['end_date_short'],
-                'num_days': row['num_days']
-            })
+                if month_name not in vacations_by_year_month[year]:
+                    vacations_by_year_month[year][month_name] = []
 
-    return render_template('dashboard.html',
-                         total_employees=total_employees,
-                         total_vacations=total_vacations,
-                         active_vacations=active_vacations,
-                         vacations_by_year_month=vacations_by_year_month)
+                vacations_by_year_month[year][month_name].append({
+                    'name': str(row['name']),
+                    'start_date': str(row['start_date_short']),
+                    'end_date': str(row['end_date_short']),
+                    'num_days': int(row['num_days'])  # Converter para int nativo do Python
+                })
+
+        return render_template('dashboard.html',
+                             total_employees=total_employees,
+                             total_vacations=total_vacations,
+                             active_vacations=active_vacations,
+                             vacations_by_year_month=vacations_by_year_month)
+    except Exception as e:
+        # Logar o erro e exibir mensagem amigável
+        import traceback
+        print(f"Erro no dashboard: {e}")
+        traceback.print_exc()
+        flash(f'Erro ao carregar dashboard: {str(e)}', 'danger')
+        return render_template('dashboard.html',
+                             total_employees=0,
+                             total_vacations=0,
+                             active_vacations=0,
+                             vacations_by_year_month={})
 
 
 # Rotas de Funcionários
