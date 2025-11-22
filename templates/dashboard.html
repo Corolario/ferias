@@ -35,27 +35,67 @@
 
 <hr>
 
-<!-- Próximas Férias -->
-<h4 class="mb-3"><i class="bi bi-calendar-check"></i> Próximas Férias</h4>
+<!-- Todas as Férias -->
+<h4 class="mb-3"><i class="bi bi-calendar-check"></i> Todas as Férias</h4>
 
-{% if upcoming_vacations %}
-    <div class="list-group">
-        {% for vacation in upcoming_vacations %}
-        <div class="list-group-item">
-            <div class="d-flex w-100 justify-content-between align-items-center">
-                <h5 class="mb-1">{{ vacation.name }}</h5>
-                <small class="text-muted">em {{ vacation.days_until }} dias</small>
-            </div>
-            <p class="mb-1">
-                <i class="bi bi-calendar-range"></i>
-                {{ vacation.start_date }} até {{ vacation.end_date }}
-            </p>
-        </div>
-        {% endfor %}
+{% if vacations_by_year_month %}
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+            <thead class="table-primary">
+                <tr>
+                    <th style="width: 8%;">Ano</th>
+                    <th style="width: 12%;">Mês</th>
+                    <th style="width: 30%;">Nome</th>
+                    <th style="width: 18%;">Início</th>
+                    <th style="width: 18%;">Fim</th>
+                    <th style="width: 14%;">Dias</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for year, months in vacations_by_year_month|dictsort %}
+                    {% set year_row_count = namespace(count=0) %}
+                    {% for month_name in ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'] %}
+                        {% if month_name in months %}
+                            {% set year_row_count.count = year_row_count.count + months[month_name]|length %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% set year_printed = namespace(value=False) %}
+
+                    {% for month_name in ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'] %}
+                        {% if month_name in months %}
+                            {% set vacations = months[month_name] %}
+                            {% set month_row_count = vacations|length %}
+
+                            {% for vacation in vacations %}
+                                <tr>
+                                    <!-- Ano (apenas na primeira linha do ano) -->
+                                    {% if not year_printed.value %}
+                                        <td rowspan="{{ year_row_count.count }}" class="align-middle text-center fw-bold">{{ year }}</td>
+                                        {% set year_printed.value = True %}
+                                    {% endif %}
+
+                                    <!-- Mês (apenas na primeira linha do mês) -->
+                                    {% if loop.first %}
+                                        <td rowspan="{{ month_row_count }}" class="align-middle">{{ month_name }}</td>
+                                    {% endif %}
+
+                                    <!-- Dados da férias -->
+                                    <td>{{ vacation.name }}</td>
+                                    <td>{{ vacation.start_date }}</td>
+                                    <td>{{ vacation.end_date }}</td>
+                                    <td class="text-center">{{ vacation.num_days }}</td>
+                                </tr>
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 {% else %}
     <div class="alert alert-info">
-        <i class="bi bi-info-circle"></i> Nenhuma féria programada
+        <i class="bi bi-info-circle"></i> Nenhuma férias cadastrada
     </div>
 {% endif %}
 {% endblock %}
