@@ -279,6 +279,10 @@ def ferias():
         vacations_df['start_date_obj'] = pd.to_datetime(vacations_df['start_date'], format='%d/%m/%Y')
         vacations_df['end_date_obj'] = pd.to_datetime(vacations_df['end_date'], format='%d/%m/%Y')
         vacations_df['num_days'] = (vacations_df['end_date_obj'] - vacations_df['start_date_obj']).dt.days + 1
+
+        # Ordenar por nome alfabético
+        vacations_df = vacations_df.sort_values(by='name')
+
         vacations = vacations_df.to_dict('records')
     else:
         vacations = []
@@ -294,6 +298,46 @@ def delete_ferias(vacation_id):
     else:
         models.delete_vacation(vacation_id)
         flash('Período de férias removido com sucesso!', 'success')
+    return redirect(url_for('ferias'))
+
+
+@app.route('/ferias/update/<int:vacation_id>', methods=['POST'])
+@login_required
+def update_ferias(vacation_id):
+    employee_id = request.form.get('employee_id')
+    start_date = request.form.get('start_date')
+    days = request.form.get('days')
+
+    # Validações
+    if not employee_id or not start_date or not days:
+        flash('Todos os campos são obrigatórios', 'danger')
+        return redirect(url_for('ferias'))
+
+    if vacation_id <= 0:
+        flash('ID inválido', 'danger')
+        return redirect(url_for('ferias'))
+
+    # Converter data e calcular data final
+    try:
+        start_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        days_int = int(days)
+
+        # Validações
+        if days_int < 1:
+            flash('Quantidade de dias deve ser pelo menos 1', 'danger')
+        elif days_int > 365:
+            flash('Período de férias não pode ser maior que 365 dias', 'danger')
+        else:
+            # Calcular data final (se são 5 dias, vai do dia 1 ao dia 5)
+            end_obj = start_obj + timedelta(days=days_int - 1)
+
+            if models.update_vacation(vacation_id, employee_id, start_obj, end_obj):
+                flash('Período de férias atualizado com sucesso!', 'success')
+            else:
+                flash('Erro ao atualizar período de férias', 'danger')
+    except ValueError:
+        flash('Formato de data ou quantidade de dias inválido', 'danger')
+
     return redirect(url_for('ferias'))
 
 
