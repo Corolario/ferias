@@ -301,6 +301,40 @@ def delete_ferias(vacation_id):
     return redirect(url_for('ferias'))
 
 
+@app.route('/ferias/update/<int:vacation_id>', methods=['POST'])
+@login_required
+def update_ferias(vacation_id):
+    employee_id = request.form.get('employee_id')
+    start_date = request.form.get('start_date')
+    end_date = request.form.get('end_date')
+
+    # Validações
+    if not employee_id or not start_date or not end_date:
+        flash('Todos os campos são obrigatórios', 'danger')
+        return redirect(url_for('ferias'))
+
+    if vacation_id <= 0:
+        flash('ID inválido', 'danger')
+        return redirect(url_for('ferias'))
+
+    # Converter datas
+    try:
+        start_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+
+        # Validar que data inicial é antes da final
+        if start_obj > end_obj:
+            flash('Data inicial deve ser anterior à data final', 'danger')
+        elif models.update_vacation(vacation_id, employee_id, start_obj, end_obj):
+            flash('Período de férias atualizado com sucesso!', 'success')
+        else:
+            flash('Erro ao atualizar período de férias', 'danger')
+    except ValueError:
+        flash('Formato de data inválido', 'danger')
+
+    return redirect(url_for('ferias'))
+
+
 # Rota de Ranking
 @app.route('/ranking')
 @login_required

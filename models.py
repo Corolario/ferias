@@ -193,6 +193,29 @@ def delete_vacation(vacation_id):
     conn.close()
 
 
+def update_vacation(vacation_id, employee_id, start_date, end_date):
+    """Atualiza um período de férias"""
+    # Validações
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+
+    if start_date > end_date:
+        return False
+
+    conn = sqlite3.connect('vacation_manager.db')
+    c = conn.cursor()
+    c.execute('''UPDATE vacations
+                 SET employee_id = ?, start_date = ?, end_date = ?
+                 WHERE id = ?''',
+              (employee_id, start_date, end_date, vacation_id))
+    conn.commit()
+    rows_affected = c.rowcount
+    conn.close()
+    return rows_affected > 0
+
+
 def get_employee_vacations(employee_id):
     """Retorna férias de um funcionário específico"""
     conn = sqlite3.connect('vacation_manager.db')
