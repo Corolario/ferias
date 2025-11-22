@@ -84,7 +84,7 @@
                                                     data-employee-id="{{ vac.employee_id }}"
                                                     data-employee-name="{{ vac.name }}"
                                                     data-start-date="{{ vac.start_date_obj.strftime('%Y-%m-%d') }}"
-                                                    data-end-date="{{ vac.end_date_obj.strftime('%Y-%m-%d') }}">
+                                                    data-num-days="{{ vac.num_days }}">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
                                             <form method="POST" action="{{ url_for('delete_ferias', vacation_id=vac.id) }}"
@@ -138,9 +138,9 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="edit_end_date" class="form-label">Data Final</label>
-                            <input type="date" class="form-control" id="edit_end_date"
-                                   name="end_date" required>
+                            <label for="edit_days" class="form-label">Quantidade de Dias</label>
+                            <input type="number" class="form-control" id="edit_days"
+                                   name="days" min="1" max="365" required>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -166,7 +166,7 @@
                 const vacationId = button.getAttribute('data-vacation-id');
                 const employeeId = button.getAttribute('data-employee-id');
                 const startDate = button.getAttribute('data-start-date');
-                const endDate = button.getAttribute('data-end-date');
+                const numDays = button.getAttribute('data-num-days');
 
                 // Atualizar o action do formulário
                 const form = document.getElementById('editForm');
@@ -175,7 +175,7 @@
                 // Preencher os campos do formulário
                 document.getElementById('edit_employee_id').value = employeeId;
                 document.getElementById('edit_start_date').value = startDate;
-                document.getElementById('edit_end_date').value = endDate;
+                document.getElementById('edit_days').value = numDays;
             });
         });
     </script>

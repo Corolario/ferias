@@ -306,10 +306,10 @@ def delete_ferias(vacation_id):
 def update_ferias(vacation_id):
     employee_id = request.form.get('employee_id')
     start_date = request.form.get('start_date')
-    end_date = request.form.get('end_date')
+    days = request.form.get('days')
 
     # Validações
-    if not employee_id or not start_date or not end_date:
+    if not employee_id or not start_date or not days:
         flash('Todos os campos são obrigatórios', 'danger')
         return redirect(url_for('ferias'))
 
@@ -317,20 +317,26 @@ def update_ferias(vacation_id):
         flash('ID inválido', 'danger')
         return redirect(url_for('ferias'))
 
-    # Converter datas
+    # Converter data e calcular data final
     try:
         start_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-        end_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+        days_int = int(days)
 
-        # Validar que data inicial é antes da final
-        if start_obj > end_obj:
-            flash('Data inicial deve ser anterior à data final', 'danger')
-        elif models.update_vacation(vacation_id, employee_id, start_obj, end_obj):
-            flash('Período de férias atualizado com sucesso!', 'success')
+        # Validações
+        if days_int < 1:
+            flash('Quantidade de dias deve ser pelo menos 1', 'danger')
+        elif days_int > 365:
+            flash('Período de férias não pode ser maior que 365 dias', 'danger')
         else:
-            flash('Erro ao atualizar período de férias', 'danger')
+            # Calcular data final (se são 5 dias, vai do dia 1 ao dia 5)
+            end_obj = start_obj + timedelta(days=days_int - 1)
+
+            if models.update_vacation(vacation_id, employee_id, start_obj, end_obj):
+                flash('Período de férias atualizado com sucesso!', 'success')
+            else:
+                flash('Erro ao atualizar período de férias', 'danger')
     except ValueError:
-        flash('Formato de data inválido', 'danger')
+        flash('Formato de data ou quantidade de dias inválido', 'danger')
 
     return redirect(url_for('ferias'))
 
