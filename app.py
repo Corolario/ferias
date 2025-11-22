@@ -111,7 +111,7 @@ def dashboard():
     # Férias ativas (em andamento)
     today = date.today()
     active_vacations = 0
-    upcoming_vacations = []
+    vacations_by_year_month = {}
 
     if not vacations_df.empty:
         # Converter strings dd/mm/aaaa para objetos date
@@ -126,22 +126,51 @@ def dashboard():
         ]
         active_vacations = len(active)
 
-        # Próximas férias - ordenar por data crescente e nome alfabético
-        upcoming = vacations_df[vacations_df['start_date_obj'] >= today].sort_values(by=['start_date_obj', 'name']).head(5)
-        for _, row in upcoming.iterrows():
-            days_until = (row['start_date_obj'] - today).days
-            upcoming_vacations.append({
+        # Calcular número de dias para cada período
+        vacations_df['num_days'] = (vacations_df['end_date_obj'] - vacations_df['start_date_obj']).dt.days + 1
+
+        # Extrair ano e mês da data de início
+        vacations_df['year'] = vacations_df['start_date_obj'].apply(lambda x: x.year)
+        vacations_df['month'] = vacations_df['start_date_obj'].apply(lambda x: x.month)
+
+        # Formatar datas no formato brasileiro curto (dd/mm/aa)
+        vacations_df['start_date_short'] = vacations_df['start_date_obj'].apply(lambda x: x.strftime('%d/%m/%y'))
+        vacations_df['end_date_short'] = vacations_df['end_date_obj'].apply(lambda x: x.strftime('%d/%m/%y'))
+
+        # Ordenar por ano, mês e data de início
+        vacations_df = vacations_df.sort_values(by=['year', 'month', 'start_date_obj'])
+
+        # Nomes dos meses em português
+        month_names = {
+            1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+            5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+            9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+        }
+
+        # Agrupar férias por ano e mês
+        for _, row in vacations_df.iterrows():
+            year = row['year']
+            month = row['month']
+            month_name = month_names[month]
+
+            if year not in vacations_by_year_month:
+                vacations_by_year_month[year] = {}
+
+            if month_name not in vacations_by_year_month[year]:
+                vacations_by_year_month[year][month_name] = []
+
+            vacations_by_year_month[year][month_name].append({
                 'name': row['name'],
-                'start_date': row['start_date'],
-                'end_date': row['end_date'],
-                'days_until': days_until
+                'start_date': row['start_date_short'],
+                'end_date': row['end_date_short'],
+                'num_days': row['num_days']
             })
 
     return render_template('dashboard.html',
                          total_employees=total_employees,
                          total_vacations=total_vacations,
                          active_vacations=active_vacations,
-                         upcoming_vacations=upcoming_vacations)
+                         vacations_by_year_month=vacations_by_year_month)
 
 
 # Rotas de Funcionários
