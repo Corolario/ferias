@@ -39,60 +39,46 @@
 <h4 class="mb-3"><i class="bi bi-calendar-check"></i> Todas as Férias</h4>
 
 {% if vacations_by_year_month %}
-    <div class="table-responsive">
-        <table class="table table-bordered table-hover">
-            <thead class="table-primary">
-                <tr>
-                    <th style="width: 8%;">Ano</th>
-                    <th style="width: 12%;">Mês</th>
-                    <th style="width: 30%;">Nome</th>
-                    <th style="width: 18%;">Início</th>
-                    <th style="width: 18%;">Fim</th>
-                    <th style="width: 14%;">Dias</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for year, months in vacations_by_year_month|dictsort %}
-                    {% set year_row_count = namespace(count=0) %}
-                    {% for month_name in ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'] %}
-                        {% if month_name in months %}
-                            {% set year_row_count.count = year_row_count.count + months[month_name]|length %}
-                        {% endif %}
-                    {% endfor %}
-
-                    {% set year_printed = namespace(value=False) %}
-
+    {% for year, months in vacations_by_year_month|dictsort %}
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered table-hover">
+                <thead class="table-primary">
+                    <tr>
+                        <th style="width: 10%;">{{ year }}</th>
+                        <th style="width: 30%;">Nome</th>
+                        <th style="width: 20%;">Início</th>
+                        <th style="width: 20%;">Fim</th>
+                        <th style="width: 20%;" class="text-center">Dias</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set previous_month = namespace(name='') %}
                     {% for month_name in ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'] %}
                         {% if month_name in months %}
                             {% set vacations = months[month_name] %}
-                            {% set month_row_count = vacations|length %}
-
                             {% for vacation in vacations %}
                                 <tr>
-                                    <!-- Ano (apenas na primeira linha do ano) -->
-                                    {% if not year_printed.value %}
-                                        <td rowspan="{{ year_row_count.count }}" class="align-middle text-center fw-bold">{{ year }}</td>
-                                        {% set year_printed.value = True %}
-                                    {% endif %}
-
                                     <!-- Mês (apenas na primeira linha do mês) -->
-                                    {% if loop.first %}
-                                        <td rowspan="{{ month_row_count }}" class="align-middle">{{ month_name }}</td>
+                                    {% if loop.first and previous_month.name != month_name %}
+                                        <td class="fw-bold">{{ month_name }}</td>
+                                        {% set previous_month.name = month_name %}
+                                    {% else %}
+                                        <td></td>
                                     {% endif %}
 
-                                    <!-- Dados da férias -->
+                                    <!-- Dados das férias -->
                                     <td>{{ vacation.name }}</td>
-                                    <td>{{ vacation.start_date }}</td>
-                                    <td>{{ vacation.end_date }}</td>
+                                    <td class="text-center">{{ vacation.start_date }}</td>
+                                    <td class="text-center">{{ vacation.end_date }}</td>
                                     <td class="text-center">{{ vacation.num_days }}</td>
                                 </tr>
                             {% endfor %}
                         {% endif %}
                     {% endfor %}
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+                </tbody>
+            </table>
+        </div>
+    {% endfor %}
 {% else %}
     <div class="alert alert-info">
         <i class="bi bi-info-circle"></i> Nenhuma férias cadastrada
