@@ -345,6 +345,58 @@ def get_employee_ranking():
     return ranking_data
 
 
+def get_vacations_by_year_month():
+    """
+    Organiza todas as férias por ano e mês de INÍCIO
+    Retorna um dicionário estruturado: {ano: {mês: [lista de férias]}}
+    Cada período é mostrado completo, sem divisão por mês
+    """
+    conn = sqlite3.connect('vacation_manager.db')
+
+    # Buscar todas as férias com nome do funcionário
+    query = '''
+        SELECT e.name, v.start_date, v.end_date
+        FROM vacations v
+        JOIN employees e ON v.employee_id = e.id
+        ORDER BY v.start_date ASC
+    '''
+
+    vacations_df = pd.read_sql_query(query, conn)
+    conn.close()
+
+    # Estrutura para organizar: {ano: {mês: [lista de férias]}}
+    vacations_by_year_month = {}
+
+    for _, row in vacations_df.iterrows():
+        name = row['name']
+        start_date = datetime.strptime(row['start_date'], '%Y-%m-%d').date()
+        end_date = datetime.strptime(row['end_date'], '%Y-%m-%d').date()
+
+        # Calcular número de dias do período completo
+        num_days = (end_date - start_date).days + 1
+
+        # Pegar ano e mês de INÍCIO
+        year = start_date.year
+        month = start_date.month
+
+        # Criar estrutura se não existir
+        if year not in vacations_by_year_month:
+            vacations_by_year_month[year] = {}
+
+        if month not in vacations_by_year_month[year]:
+            vacations_by_year_month[year][month] = []
+
+        # Adicionar período completo
+        vacations_by_year_month[year][month].append({
+            'name': name,
+            'start_date': start_date,
+            'end_date': end_date,
+            'days': num_days
+        })
+
+    return vacations_by_year_month
+
+
 def generate_ranking_pdf():
     """Gera PDF do ranking de funcionários"""
     buffer = BytesIO()
@@ -396,12 +448,12 @@ def generate_ranking_pdf():
     classification_heading = Paragraph("Classificação", heading_style)
     elements.append(classification_heading)
 
-    # Tabela de classificação (apenas posição e nome)
-    classification_data = [['Posição', 'Nome']]
+    # Tabela de classificação (posição, nome e pontos)
+    classification_data = [['Classificação', 'Nome', 'Pontos']]
     for idx, emp in enumerate(ranking_data, 1):
-        classification_data.append([str(idx), emp['name']])
+        classification_data.append([str(idx), emp['name'], str(emp['total_points'])])
 
-    classification_table = Table(classification_data, colWidths=[3*cm, 14*cm])
+    classification_table = Table(classification_data, colWidths=[3*cm, 11*cm, 3*cm])
     classification_table.setStyle(TableStyle([
         # Cabeçalho
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
@@ -424,9 +476,91 @@ def generate_ranking_pdf():
     ]))
 
     elements.append(classification_table)
+    elements.append(Spacer(1, 1*cm))
+
+    # ========== SEÇÃO 2: TABELA DE FÉRIAS ==========
+    vacation_table_heading = Paragraph("Tabela de Férias", heading_style)
+    elements.append(vacation_table_heading)
+    elements.append(Spacer(1, 0.3*cm))
+
+    # Obter férias organizadas por ano/mês
+    vacations_by_year_month = get_vacations_by_year_month()
+
+    # Se houver férias cadastradas
+    if vacations_by_year_month:
+        # Iterar por cada ano (ordenado)
+        for year in sorted(vacations_by_year_month.keys()):
+            # Criar tabela para este ano
+            year_vacation_data = []
+
+            # Primeira linha (cabeçalho): Ano, Nome, Início, Fim, Dias
+            year_vacation_data.append([str(year), 'Nome', 'Início', 'Fim', 'Dias'])
+
+            # Variável para controlar mês anterior
+            previous_month = None
+
+            # Iterar por cada mês (ordenado)
+            for month in sorted(vacations_by_year_month[year].keys()):
+                month_name = month_names[month]
+
+                # Adicionar cada período de férias deste mês
+                for idx, vacation in enumerate(vacations_by_year_month[year][month]):
+                    name = vacation['name']
+                    start_date_str = vacation['start_date'].strftime('%d/%m/%y')
+                    end_date_str = vacation['end_date'].strftime('%d/%m/%y')
+                    days = str(vacation['days'])
+
+                    # Se é o primeiro período do mês, mostra o nome do mês
+                    # Senão, deixa em branco
+                    if idx == 0:
+                        if month == previous_month:
+                            month_display = ''
+                        else:
+                            month_display = month_name
+                            previous_month = month
+                    else:
+                        month_display = ''
+
+                    year_vacation_data.append([month_display, name, start_date_str, end_date_str, days])
+
+            # Criar tabela do ano
+            year_table = Table(year_vacation_data, colWidths=[3*cm, 6*cm, 3*cm, 3*cm, 2*cm])
+
+            # Estilos da tabela
+            table_style = [
+                # Cabeçalho (primeira linha)
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('TOPPADDING', (0, 0), (-1, 0), 8),
+
+                # Corpo - todas as linhas
+                ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+                ('ALIGN', (1, 1), (1, -1), 'LEFT'),
+                ('ALIGN', (2, 1), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#ecf0f1')]),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('TOPPADDING', (0, 1), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ]
+
+            year_table.setStyle(TableStyle(table_style))
+            elements.append(year_table)
+            elements.append(Spacer(1, 0.5*cm))
+
+    else:
+        no_vacations_text = Paragraph("Nenhum período de férias cadastrado.", styles['Italic'])
+        elements.append(no_vacations_text)
+
     elements.append(PageBreak())
 
-    # ========== SEÇÃO 2: DETALHES POR FUNCIONÁRIO ==========
+    # ========== SEÇÃO 3: DETALHES POR FUNCIONÁRIO ==========
     details_heading = Paragraph("Detalhes por Funcionário", heading_style)
     elements.append(details_heading)
     elements.append(Spacer(1, 0.3*cm))
