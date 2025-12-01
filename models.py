@@ -433,7 +433,6 @@ def generate_ranking_pdf():
     date_text = f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
     date_para = Paragraph(date_text, styles['Normal'])
     elements.append(date_para)
-    elements.append(Spacer(1, 0.5*cm))
 
     # Obter dados do ranking
     ranking_data = get_employee_ranking()
@@ -476,7 +475,6 @@ def generate_ranking_pdf():
     ]))
 
     elements.append(classification_table)
-    elements.append(Spacer(1, 1*cm))
     
     elements.append(PageBreak())
     
