@@ -477,7 +477,9 @@ def generate_ranking_pdf():
 
     elements.append(classification_table)
     elements.append(Spacer(1, 1*cm))
-
+    
+    elements.append(PageBreak())
+    
     # ========== SEÇÃO 2: TABELA DE FÉRIAS ==========
     vacation_table_heading = Paragraph("Tabela de Férias", heading_style)
     elements.append(vacation_table_heading)
