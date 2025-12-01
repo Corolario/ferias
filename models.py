@@ -16,7 +16,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 def init_db():
     """Inicializa o banco de dados"""
-    conn = sqlite3.connect('./dada/vacation_manager.db')
+    conn = sqlite3.connect('vacation_manager.db')
     c = conn.cursor()
 
     # Habilitar foreign keys
