@@ -214,26 +214,6 @@ def update_vacation(vacation_id, employee_id, start_date, end_date):
     return rows_affected > 0
 
 
-def get_employee_vacations(employee_id):
-    """Retorna férias de um funcionário específico"""
-    conn = sqlite3.connect('/data/vacation_manager.db')
-    query = '''
-        SELECT id, start_date, end_date
-        FROM vacations
-        WHERE employee_id = ?
-        ORDER BY start_date DESC
-    '''
-    df = pd.read_sql_query(query, conn, params=(employee_id,))
-    conn.close()
-
-    # Formatar datas para dd/mm/aaaa
-    if not df.empty:
-        df['start_date'] = pd.to_datetime(df['start_date']).dt.strftime('%d/%m/%Y')
-        df['end_date'] = pd.to_datetime(df['end_date']).dt.strftime('%d/%m/%Y')
-
-    return df
-
-
 # Funções de ranking
 def get_month_points():
     """Retorna a tabela de pontos por mês"""
