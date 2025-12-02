@@ -34,13 +34,6 @@ body {
     color: #0d6efd;
 }
 
-/* List group items */
-.list-group-item {
-    border-left: 3px solid #0d6efd;
-    margin-bottom: 8px;
-    border-radius: 6px;
-}
-
 /* Alerts */
 .alert {
     border-radius: 8px;

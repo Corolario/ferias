@@ -10,6 +10,9 @@ import os
 import secrets
 from dotenv import load_dotenv
 import models
+import pandas as pd
+import sqlite3
+import traceback
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -116,7 +119,6 @@ def dashboard():
 
         if not vacations_df.empty:
             # Converter strings dd/mm/aaaa para objetos datetime do pandas primeiro
-            import pandas as pd
             vacations_df['start_date_dt'] = pd.to_datetime(vacations_df['start_date'], format='%d/%m/%Y')
             vacations_df['end_date_dt'] = pd.to_datetime(vacations_df['end_date'], format='%d/%m/%Y')
 
@@ -178,7 +180,6 @@ def dashboard():
                              vacations_by_year_month=vacations_by_year_month)
     except Exception as e:
         # Logar o erro e exibir mensagem amigável
-        import traceback
         print(f"Erro no dashboard: {e}")
         traceback.print_exc()
         flash(f'Erro ao carregar dashboard: {str(e)}', 'danger')
@@ -275,7 +276,6 @@ def ferias():
 
     # Calcular número de dias para cada período de férias
     if not vacations_df.empty:
-        import pandas as pd
         vacations_df['start_date_obj'] = pd.to_datetime(vacations_df['start_date'], format='%d/%m/%Y')
         vacations_df['end_date_obj'] = pd.to_datetime(vacations_df['end_date'], format='%d/%m/%Y')
         vacations_df['num_days'] = (vacations_df['end_date_obj'] - vacations_df['start_date_obj']).dt.days + 1
@@ -355,9 +355,6 @@ def ranking():
     }
 
     # Adicionar detalhes formatados aos dados do ranking
-    import sqlite3
-    import pandas as pd
-
     # Buscar todas as férias
     conn = sqlite3.connect('/data/vacation_manager.db')
     all_vacations_query = '''
