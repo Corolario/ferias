@@ -17,6 +17,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     FLASK_DEBUG=False \
     PORT=8000
 
+# Instalar gosu para troca segura de usuário
+RUN apt-get update && apt-get install -y --no-install-recommends gosu && \
+    rm -rf /var/lib/apt/lists/* && \
+    gosu nobody true
+
 # Criar usuário não-root para segurança
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
@@ -36,8 +41,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar código da aplicação
 COPY --chown=appuser:appuser . .
 
-# Mudar para usuário não-root
-USER appuser
+# Copiar e configurar entrypoint
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Expor porta da aplicação
 EXPOSE 8000
@@ -48,6 +54,9 @@ VOLUME ["/data"]
 # Health check para monitoramento
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/login', timeout=5)"
+
+# Entrypoint para corrigir permissões e trocar para appuser
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Script de inicialização com Gunicorn
 CMD ["gunicorn", \
