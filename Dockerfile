@@ -17,12 +17,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     FLASK_DEBUG=False \
     PORT=8000
 
-# Instalar dependências de sistema necessárias
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
 # Criar usuário não-root para segurança
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
