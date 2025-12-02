@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ferias-app:latest
+    container_name: ferias-web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Volume para persistência do banco de dados SQLite
+      - ./data:/data
+    environment:
+      # Configurações de produção
+      - FLASK_ENV=production
+      - FLASK_DEBUG=False
+      - PORT=8000
+
+      # Segurança
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-False}
+
+      # Gunicorn settings
+      - WORKERS=${WORKERS:-4}
+      - TIMEOUT=${TIMEOUT:-120}
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/login', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - ferias-network
+
+  # Nginx reverse proxy (opcional, para produção com HTTPS)
+  nginx:
+    image: nginx:alpine
+    container_name: ferias-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - web
+    networks:
+      - ferias-network
+    profiles:
+      - with-nginx
+
+networks:
+  ferias-network:
+    driver: bridge
+
+volumes:
+  data:
+    driver: local
