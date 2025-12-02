@@ -14,33 +14,8 @@ services:
       # Volume para persistência do banco de dados SQLite
       - ./data:/data
     environment:
-      # Configurações de produção
-      - FLASK_ENV=production
-      - FLASK_DEBUG=False
-      - PORT=8000
-
       # Segurança
       - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-False}
-
-      # Gunicorn settings
-      - WORKERS=${WORKERS:-4}
-      - TIMEOUT=${TIMEOUT:-120}
     env_file:
       - .env
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/login', timeout=5)"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - ferias-network
-
-networks:
-  ferias-network:
-    driver: bridge
-
-volumes:
-  data:
-    driver: local
