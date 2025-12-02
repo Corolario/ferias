@@ -1,7 +1,7 @@
 # ==========================================
-# Dockerfile de Produção - Python 3.14
+# Dockerfile de Produção - Python 3.13
 # ==========================================
-FROM python:3.14-slim
+FROM python:3.13-slim
 
 # Metadados da imagem
 LABEL maintainer="seu-email@example.com" \
