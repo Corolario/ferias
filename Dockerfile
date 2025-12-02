@@ -1,34 +1,7 @@
 # ==========================================
-# Stage 1: Builder - Instalar dependências
+# Dockerfile de Produção - Python 3.14
 # ==========================================
-FROM python:3.13-slim AS builder
-
-# Definir variáveis de ambiente para build
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
-
-# Instalar dependências de sistema necessárias para build
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-# Criar diretório de trabalho
-WORKDIR /app
-
-# Copiar apenas requirements.txt primeiro (cache Docker)
-COPY requirements.txt .
-
-# Instalar dependências Python em um diretório separado
-RUN pip install --user --no-warn-script-location -r requirements.txt
-
-
-# ==========================================
-# Stage 2: Runtime - Imagem final
-# ==========================================
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 # Metadados da imagem
 LABEL maintainer="seu-email@example.com" \
@@ -38,11 +11,19 @@ LABEL maintainer="seu-email@example.com" \
 # Variáveis de ambiente para produção
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
     FLASK_ENV=production \
     FLASK_DEBUG=False \
     PORT=8000 \
     WORKERS=4 \
     TIMEOUT=120
+
+# Instalar dependências de sistema necessárias
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Criar usuário não-root para segurança
 RUN groupadd -r appuser && useradd -r -g appuser appuser
@@ -54,14 +35,14 @@ RUN mkdir -p /app /data && \
 # Definir diretório de trabalho
 WORKDIR /app
 
-# Copiar dependências Python do builder
-COPY --from=builder /root/.local /home/appuser/.local
+# Copiar requirements.txt primeiro (melhor uso de cache Docker)
+COPY requirements.txt .
+
+# Instalar dependências Python
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar código da aplicação
 COPY --chown=appuser:appuser . .
-
-# Atualizar PATH para incluir binários locais do usuário
-ENV PATH=/home/appuser/.local/bin:$PATH
 
 # Mudar para usuário não-root
 USER appuser

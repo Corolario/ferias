@@ -37,24 +37,6 @@ services:
     networks:
       - ferias-network
 
-  # Nginx reverse proxy (opcional, para produção com HTTPS)
-  nginx:
-    image: nginx:alpine
-    container_name: ferias-nginx
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - web
-    networks:
-      - ferias-network
-    profiles:
-      - with-nginx
-
 networks:
   ferias-network:
     driver: bridge
