@@ -16,7 +16,7 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 def init_db():
     """Inicializa o banco de dados"""
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
     c = conn.cursor()
 
     # Habilitar foreign keys
@@ -53,12 +53,10 @@ def init_db():
         )
     ''')
 
-    # Criar usuário admin padrão se não existir
-    c.execute('SELECT COUNT(*) FROM users WHERE username = ?', ('admin',))
-    if c.fetchone()[0] == 0:
-        password_hash = hash_password('admin123')
-        c.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)',
-                  ('admin', password_hash))
+    # Criar usuário admin padrão se não existir (INSERT OR IGNORE evita race condition)
+    password_hash = hash_password('admin123')
+    c.execute('INSERT OR IGNORE INTO users (username, password_hash) VALUES (?, ?)',
+              ('admin', password_hash))
 
     conn.commit()
     conn.close()
@@ -80,7 +78,7 @@ def verify_login(username, password):
     if not username or not password:
         return False
 
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
     c = conn.cursor()
 
     c.execute('SELECT password_hash FROM users WHERE username = ?', (username,))
@@ -98,7 +96,7 @@ def change_password(username, new_password):
     if not username or not new_password or len(new_password) < 6:
         return False
 
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
     c = conn.cursor()
     password_hash = hash_password(new_password)
 
@@ -117,7 +115,7 @@ def add_employee(name):
     if not name or not name.strip():
         return False
 
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
     c = conn.cursor()
     c.execute('INSERT INTO employees (name) VALUES (?)', (name.strip(),))
     conn.commit()
@@ -127,7 +125,7 @@ def add_employee(name):
 
 def get_employees():
     """Retorna lista de funcionários"""
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
     df = pd.read_sql_query('SELECT * FROM employees ORDER BY name', conn)
     conn.close()
     return df
@@ -135,7 +133,7 @@ def get_employees():
 
 def delete_employee(employee_id):
     """Remove um funcionário e suas férias"""
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
     c = conn.cursor()
     c.execute('PRAGMA foreign_keys = ON')
     c.execute('DELETE FROM employees WHERE id = ?', (employee_id,))
@@ -155,7 +153,7 @@ def add_vacation(employee_id, start_date, end_date):
     if start_date > end_date:
         return False
 
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
     c = conn.cursor()
     c.execute('INSERT INTO vacations (employee_id, start_date, end_date) VALUES (?, ?, ?)',
               (employee_id, start_date, end_date))
@@ -166,7 +164,7 @@ def add_vacation(employee_id, start_date, end_date):
 
 def get_vacations():
     """Retorna todas as férias com nome do funcionário"""
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
     query = '''
         SELECT v.id, e.name, v.start_date, v.end_date, e.id as employee_id
         FROM vacations v
@@ -186,7 +184,7 @@ def get_vacations():
 
 def delete_vacation(vacation_id):
     """Remove um período de férias"""
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
     c = conn.cursor()
     c.execute('DELETE FROM vacations WHERE id = ?', (vacation_id,))
     conn.commit()
@@ -204,7 +202,7 @@ def update_vacation(vacation_id, employee_id, start_date, end_date):
     if start_date > end_date:
         return False
 
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
     c = conn.cursor()
     c.execute('''UPDATE vacations
                  SET employee_id = ?, start_date = ?, end_date = ?
@@ -218,7 +216,7 @@ def update_vacation(vacation_id, employee_id, start_date, end_date):
 
 def get_employee_vacations(employee_id):
     """Retorna férias de um funcionário específico"""
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
     query = '''
         SELECT id, start_date, end_date
         FROM vacations
@@ -289,7 +287,7 @@ def calculate_vacation_points(start_date, end_date):
 
 def get_employee_ranking():
     """Calcula o ranking de todos os funcionários"""
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
 
     # Buscar todos os funcionários
     employees_query = 'SELECT id, name FROM employees ORDER BY name'
@@ -351,7 +349,7 @@ def get_vacations_by_year_month():
     Retorna um dicionário estruturado: {ano: {mês: [lista de férias]}}
     Cada período é mostrado completo, sem divisão por mês
     """
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
 
     # Buscar todas as férias com nome do funcionário
     query = '''
@@ -566,7 +564,7 @@ def generate_ranking_pdf():
     elements.append(Spacer(1, 0.3*cm))
 
     # Buscar férias de cada funcionário
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
     vacations_query = '''
         SELECT employee_id, start_date, end_date
         FROM vacations
@@ -577,7 +575,7 @@ def generate_ranking_pdf():
 
     for idx, emp in enumerate(ranking_data, 1):
         # Buscar o employee_id do funcionário
-        conn = sqlite3.connect('vacation_manager.db')
+        conn = sqlite3.connect('/data/vacation_manager.db')
         emp_id_query = 'SELECT id FROM employees WHERE name = ?'
         emp_id_result = pd.read_sql_query(emp_id_query, conn, params=(emp['name'],))
         conn.close()

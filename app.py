@@ -359,7 +359,7 @@ def ranking():
     import pandas as pd
 
     # Buscar todas as férias
-    conn = sqlite3.connect('vacation_manager.db')
+    conn = sqlite3.connect('/data/vacation_manager.db')
     all_vacations_query = '''
         SELECT v.employee_id, e.name as employee_name, v.start_date, v.end_date
         FROM vacations v

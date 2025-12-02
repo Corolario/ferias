@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ferias-app:latest
+    container_name: ferias-web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Volume para persistência do banco de dados SQLite
+      - ./data:/data
+    environment:
+      # Segurança
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-False}
+    env_file:
+      - .env
