@@ -15,9 +15,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     FLASK_ENV=production \
     FLASK_DEBUG=False \
-    PORT=8000 \
-    WORKERS=4 \
-    TIMEOUT=120
+    PORT=8000
 
 # Instalar dependências de sistema necessárias
 RUN apt-get update && apt-get install -y --no-install-recommends \
