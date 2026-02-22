@@ -3,7 +3,7 @@ Aplicação Flask para Gerenciamento de Férias
 """
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
 from flask_wtf.csrf import CSRFProtect
-from flask_bootstrap import Bootstrap5
+
 from datetime import date, datetime, timedelta
 from functools import wraps
 import os
@@ -28,9 +28,6 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
 
 # Proteção CSRF
 csrf = CSRFProtect(app)
-
-# Inicializar Bootstrap
-bootstrap = Bootstrap5(app)
 
 # Inicializar banco de dados
 models.init_db()
