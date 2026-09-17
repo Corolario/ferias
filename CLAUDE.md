@@ -109,11 +109,18 @@ Rotas protegidas usam o decorator `@login_required` que:
 
 ## Tecnologias e Dependências
 
-- **Flask 3.1.0** - Framework web
-- **Pandas 2.2.3** - Processamento de dados
+- **Flask 3.1.3** - Framework web
+- **Pandas 3.0.5** - Processamento de dados
+- **bcrypt 5.0.0** - Hash de senhas
+- **Flask-WTF 1.3.0** - Proteção CSRF
+- **Flask-Limiter 4.1.1** - Limite de tentativas de login
+- **ReportLab 5.0.1** - Geração de PDF
+- **Gunicorn 26.2.0** - Servidor WSGI de produção
 - **SQLite3** - Banco de dados (built-in Python)
-- **Bootstrap 5.3.0** - Framework CSS (via CDN)
+- **Bootstrap 5.3.8** - Framework CSS (via CDN)
 - **Jinja2** - Template engine (incluído com Flask)
+
+As versões são fixadas em `requirements.txt`; mantenha os dois lugares em sincronia.
 
 ## Desenvolvimento
 
@@ -180,8 +187,36 @@ Não existe suite de testes automatizados atualmente. Testes manuais devem verif
 
 ## Segurança
 
-⚠️ **Atenção**:
-- Senha usa SHA256 (adequado para desenvolvimento, usar bcrypt em produção)
-- SECRET_KEY está hardcoded (mover para variável de ambiente em produção)
-- Sem proteção CSRF (adicionar Flask-WTF para produção)
-- Debug mode ativado (desativar em produção)
+Já implementado:
+- Senhas com **bcrypt** (`hash_password`/`verify_password` em `models.py`), com salt por senha
+- **Proteção CSRF** ativa via Flask-WTF (`CSRFProtect` em `app.py`)
+- **SECRET_KEY** obrigatória em produção: a aplicação recusa subir com a variável ausente ou
+  com um dos valores de exemplo, porque uma chave pública permite forjar cookies de sessão
+- **Limite de tentativas de login** com Flask-Limiter (5 POSTs por 15 min por IP)
+- Headers de segurança e cookies de sessão com `HttpOnly` e `SameSite=Lax`
+
+### Limite de 72 bytes nas senhas
+
+O bcrypt só considera os primeiros 72 **bytes** da senha, e a partir da versão 5.0 levanta
+`ValueError` acima disso. Por isso `senha_dentro_do_limite()` valida o tamanho antes de gerar
+ou conferir o hash. Lembre que acentos ocupam 2 bytes em UTF-8: uma senha de 40 caracteres
+acentuados já estoura o limite.
+
+### Identificação do visitante atrás do Cloudflare
+
+Em produção a aplicação fica atrás de um Cloudflare Tunnel, com o `cloudflared` em outra
+máquina da rede. Nesse arranjo `request.remote_addr` é sempre o mesmo IP - o do `cloudflared` -
+para todos os visitantes, então o limite de tentativas usa o header `CF-Connecting-IP`
+(função `client_ip()` em `app.py`). Isso é controlado por `TRUST_CF_HEADER`, que deve ficar
+desligado em qualquer ambiente onde a aplicação seja acessível diretamente: quem alcança a
+porta 8000 sem passar pelo Cloudflare consegue forjar esse header e escapar do limite.
+
+Se um dia um nginx/Traefik entrar na frente no lugar do túnel, será preciso `ProxyFix` para
+ler o `X-Forwarded-For`.
+
+⚠️ **Pendências conhecidas**:
+- Usuário `admin`/`admin123` criado automaticamente, sem forçar troca no primeiro acesso
+- Assets do Bootstrap via CDN sem atributo `integrity` (SRI)
+- Detalhes de exceção exibidos ao usuário no dashboard e na geração de PDF
+- `SESSION_COOKIE_SECURE` com padrão `False`; defina `True` no `.env` (o acesso é por HTTPS)
+- Debug mode ativado ao rodar `python app.py` (o container usa Gunicorn, sem debug)

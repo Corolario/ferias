@@ -62,6 +62,17 @@ def init_db():
     conn.close()
 
 
+# O algoritmo bcrypt só considera os primeiros 72 bytes da senha. Até o bcrypt 4.x
+# o excedente era descartado em silêncio; a partir do 5.0 ele levanta ValueError.
+# Atenção: são bytes, não caracteres - acentos ocupam 2 bytes em UTF-8.
+BCRYPT_MAX_BYTES = 72
+
+
+def senha_dentro_do_limite(password):
+    """Verifica se a senha cabe no limite de bytes do bcrypt"""
+    return len(password.encode('utf-8')) <= BCRYPT_MAX_BYTES
+
+
 def hash_password(password):
     """Gera hash bcrypt da senha"""
     salt = bcrypt.gensalt()
@@ -70,6 +81,11 @@ def hash_password(password):
 
 def verify_password(password, password_hash):
     """Verifica se a senha corresponde ao hash"""
+    # Senha acima do limite não pode corresponder a nenhum hash, e deixar o
+    # ValueError subir transformaria a rota pública de login em erro 500.
+    if not senha_dentro_do_limite(password):
+        return False
+
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
 
 
@@ -94,6 +110,9 @@ def verify_login(username, password):
 def change_password(username, new_password):
     """Altera a senha do usuário"""
     if not username or not new_password or len(new_password) < 6:
+        return False
+
+    if not senha_dentro_do_limite(new_password):
         return False
 
     conn = sqlite3.connect('/data/vacation_manager.db')

@@ -15,7 +15,7 @@ services:
       - ./data:/data
     environment:
       # Segurança
-      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - SECRET_KEY=${SECRET_KEY:?defina SECRET_KEY no arquivo .env antes de subir}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-False}
     env_file:
       - .env

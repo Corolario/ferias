@@ -3,6 +3,8 @@ Aplicação Flask para Gerenciamento de Férias
 """
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
 from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from datetime import date, datetime, timedelta
 from functools import wraps
@@ -19,8 +21,27 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# Valores de exemplo que circulam no repositório. Se algum deles chegar até aqui,
+# a chave é pública e qualquer pessoa consegue forjar um cookie de sessão válido.
+CHAVES_INSEGURAS = {
+    'change-this-in-production',
+    'your-secret-key-here-change-in-production',
+}
+
 # Configurações de segurança
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
+_secret_key = os.environ.get('SECRET_KEY')
+if not _secret_key or _secret_key in CHAVES_INSEGURAS:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(
+            'SECRET_KEY ausente ou com valor de exemplo. Em produção ela é obrigatória: '
+            'sem uma chave própria qualquer pessoa consegue forjar um cookie de sessão e '
+            'entrar como admin. Gere uma com '
+            'python -c "import secrets; print(secrets.token_hex(32))" e defina no .env'
+        )
+    # Fora de produção, uma chave efêmera é suficiente
+    _secret_key = secrets.token_hex(32)
+
+app.config['SECRET_KEY'] = _secret_key
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'False') == 'True'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -28,6 +49,28 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
 
 # Proteção CSRF
 csrf = CSRFProtect(app)
+
+# Atrás do Cloudflare Tunnel, request.remote_addr é sempre o IP do cloudflared na
+# LAN - o mesmo para todos os visitantes. Sem ler o CF-Connecting-IP, as tentativas
+# erradas de uma pessoa bloqueariam o login de todo mundo.
+TRUST_CF_HEADER = os.environ.get('TRUST_CF_HEADER', 'False') == 'True'
+
+
+def client_ip():
+    """IP do visitante, usado como chave do limite de tentativas"""
+    if TRUST_CF_HEADER:
+        cf_ip = request.headers.get('CF-Connecting-IP')
+        if cf_ip:
+            return cf_ip
+    return get_remote_address()
+
+
+# Limite de tentativas de login (força bruta)
+limiter = Limiter(
+    client_ip,
+    app=app,
+    storage_uri=os.environ.get('RATELIMIT_STORAGE_URI', 'memory://'),
+)
 
 # Inicializar banco de dados
 models.init_db()
@@ -64,6 +107,7 @@ def index():
 
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit('5 per 15 minutes', methods=['POST'])
 def login():
     # Se já estiver logado, redireciona
     if 'username' in session:
@@ -475,8 +519,9 @@ def configuracoes():
             flash('As senhas não coincidem', 'danger')
         elif len(new_password) < 6:
             flash('A nova senha deve ter pelo menos 6 caracteres', 'danger')
-        elif len(new_password) > 100:
-            flash('A nova senha não pode ter mais de 100 caracteres', 'danger')
+        elif not models.senha_dentro_do_limite(new_password):
+            flash('A nova senha não pode passar de 72 bytes. Letras acentuadas '
+                  'contam como 2, então use no máximo 72 caracteres simples.', 'danger')
         elif not models.verify_login(session['username'], current_password):
             flash('Senha atual incorreta', 'danger')
         elif models.change_password(session['username'], new_password):
@@ -490,6 +535,14 @@ def configuracoes():
 
 
 # Handler de erros
+@app.errorhandler(429)
+def too_many_requests(e):
+    # Renderiza a própria tela de login em vez de redirecionar: o navegador não
+    # segue o Location de uma resposta 429, e a mensagem nunca apareceria.
+    flash('Muitas tentativas de login. Aguarde alguns minutos e tente novamente.', 'danger')
+    return render_template('login.html'), 429
+
+
 @app.errorhandler(404)
 def page_not_found(e):
     flash('Página não encontrada', 'warning')

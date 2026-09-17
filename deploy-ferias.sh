@@ -45,9 +45,18 @@ rm "$zipfile" &&
 # Para os containers existentes (ignora erro caso não estejam rodando)
 docker-compose -f "$repo/docker-compose.yml" down || true
 
-# --- Backup do banco de dados ---
-# Copia o banco SQLite para o diretório atual antes de remover o projeto antigo
-cp "$repo"/data/vacation_manager.db . || true
+# --- Backup do banco de dados e das configurações ---
+# Copia o banco SQLite antes de remover o projeto antigo. Sem "|| true": se o
+# banco existe e a cópia falha, o deploy precisa parar em vez de seguir e apagá-lo.
+if [ -f "$repo"/data/vacation_manager.db ]; then
+    cp "$repo"/data/vacation_manager.db .
+fi
+
+# Preserva o .env de produção, que seria destruído junto com o diretório antigo.
+# É ele que guarda a SECRET_KEY: perdê-la desloga todos os usuários.
+if [ -f "$repo"/.env ]; then
+    cp "$repo"/.env .env.backup
+fi
 
 # --- Substituição do código ---
 # Remove o diretório antigo do projeto
@@ -61,9 +70,19 @@ mv "$dirname" "$repo"
 mkdir -p "$repo"/data
 cp vacation_manager.db "$repo"/data/ || true
 
-# --- Configuração e rebuild ---
-# Copia o arquivo de exemplo de variáveis de ambiente como .env
-cp env.example "$repo"/.env &&
+# --- Configuração ---
+# Restaura o .env preservado. Só no primeiro deploy ele é criado a partir do
+# exemplo, já com uma SECRET_KEY própria gerada na hora.
+if [ -f .env.backup ]; then
+    cp .env.backup "$repo"/.env
+else
+    cp "$repo"/.env.example "$repo"/.env
+    chave=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+    sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$chave|" "$repo"/.env
+    echo "AVISO: .env criado a partir do exemplo, com SECRET_KEY nova. Revise os demais valores."
+fi
+
+# --- Rebuild ---
 
 # Reconstrói as imagens Docker sem cache (garante versão limpa)
 docker-compose -f "$repo"/docker-compose.yml build --no-cache &&
