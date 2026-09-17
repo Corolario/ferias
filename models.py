@@ -174,8 +174,10 @@ def add_vacation(employee_id, start_date, end_date):
 
     conn = sqlite3.connect('/data/vacation_manager.db')
     c = conn.cursor()
+    # isoformat() explícito: o adapter de data embutido do sqlite3 está obsoleto
+    # desde o Python 3.12 e será removido. Gera a mesma string 'YYYY-MM-DD'.
     c.execute('INSERT INTO vacations (employee_id, start_date, end_date) VALUES (?, ?, ?)',
-              (employee_id, start_date, end_date))
+              (employee_id, start_date.isoformat(), end_date.isoformat()))
     conn.commit()
     conn.close()
     return True
@@ -223,10 +225,11 @@ def update_vacation(vacation_id, employee_id, start_date, end_date):
 
     conn = sqlite3.connect('/data/vacation_manager.db')
     c = conn.cursor()
+    # isoformat() explícito: ver comentário em add_vacation
     c.execute('''UPDATE vacations
                  SET employee_id = ?, start_date = ?, end_date = ?
                  WHERE id = ?''',
-              (employee_id, start_date, end_date, vacation_id))
+              (employee_id, start_date.isoformat(), end_date.isoformat(), vacation_id))
     conn.commit()
     rows_affected = c.rowcount
     conn.close()
