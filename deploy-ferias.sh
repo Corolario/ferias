@@ -30,12 +30,16 @@ zipfile=$(echo "$url" | sed 's#.*/##')
 repo=$(echo "$url" | cut -d'/' -f5)
 
 # --- Download ---
-# Baixa o arquivo ZIP da URL informada
-wget "$url"
+# Baixa o ZIP sempre com o mesmo nome: sem "-O", uma sobra de execução anterior
+# faria o wget salvar ".zip.1" e o script seguiria usando o arquivo antigo.
+wget -O "$zipfile" "$url"
 
 # --- Extração ---
-# Identifica o nome do diretório raiz dentro do ZIP
-dirname=$(unzip -Z1 "$zipfile" | head -n1 | cut -d/ -f1)
+# Identifica o nome do diretório raiz dentro do ZIP. Lê a listagem inteira
+# antes de cortar: com "| head -n1" o unzip morria de SIGPIPE ao continuar
+# escrevendo depois que o head fechava o pipe, e o pipefail derrubava o script.
+listagem=$(unzip -Z1 "$zipfile")
+dirname=${listagem%%/*}
 
 # Descompacta o ZIP e remove o arquivo após a extração
 unzip -o "$zipfile" &&
@@ -77,9 +81,20 @@ if [ -f .env.backup ]; then
     cp .env.backup "$repo"/.env
 else
     cp "$repo"/.env.example "$repo"/.env
-    chave=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-    sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$chave|" "$repo"/.env
-    echo "AVISO: .env criado a partir do exemplo, com SECRET_KEY nova. Revise os demais valores."
+    echo "AVISO: .env criado a partir do exemplo. Revise os demais valores."
+fi
+
+# Garante uma SECRET_KEY real em todo deploy. Sem ela o docker-compose novo
+# recusa subir - e nesse ponto o diretório antigo já foi removido.
+if ! grep -qE '^SECRET_KEY=.+' "$repo"/.env \
+   || grep -qE '^SECRET_KEY=(change-this-in-production|your-secret-key-here-change-in-production)$' "$repo"/.env; then
+    # 64 caracteres hex só com coreutils (não depende de python no host)
+    chave=$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')
+    sed -i '/^SECRET_KEY=/d' "$repo"/.env
+    # garante quebra de linha no fim antes de acrescentar
+    [ -s "$repo"/.env ] && [ -n "$(tail -c1 "$repo"/.env)" ] && echo >> "$repo"/.env
+    echo "SECRET_KEY=$chave" >> "$repo"/.env
+    echo "AVISO: SECRET_KEY gerada. Todos os usuários precisarão fazer login de novo."
 fi
 
 # --- Rebuild ---
